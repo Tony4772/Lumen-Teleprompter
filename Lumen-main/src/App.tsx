@@ -441,7 +441,9 @@ export default function App() {
       />
 
       {/* Main Workspace Area with Responsive Split & Mobile Switching */}
-      <main className="flex-1 flex overflow-hidden relative pb-14 md:pb-0">
+      <main className={`flex-1 flex overflow-hidden relative md:pb-0 ${
+        mobileScreen === 'prompter' || mode !== 'studio' ? 'pb-[10.5rem]' : 'pb-[4.5rem]'
+      }`}>
         
         {/* Left Studio Editor Pane: Visible on Desktop when mode='studio', or on Mobile when mobileScreen='editor' */}
         {((mode === 'studio' && mobileScreen === 'editor') || (mode === 'studio')) && (
@@ -513,9 +515,9 @@ export default function App() {
         </section>
       </main>
 
-      {/* Floating Bottom Control Bar (Hidden on Mobile when on Editor view to save vertical space) */}
+      {/* Desktop control bar (in document flow) */}
       {(mobileScreen === 'prompter' || mode !== 'studio') && (
-        <div className="fixed md:static bottom-14 md:bottom-auto left-0 right-0 z-30">
+        <div className="hidden md:block">
           <ControlOverlay
             settings={settings}
             onUpdateSettings={handleUpdateSettings}
@@ -546,7 +548,7 @@ export default function App() {
                 setSettings((s) => ({ ...s, mirrorX: true }));
               }
             }}
-            isMobileScreen={true}
+            isMobileScreen={false}
             isRecording={isRecording}
             recordingSeconds={recordingSeconds}
             onToggleRecord={handleToggleRecord}
@@ -556,15 +558,56 @@ export default function App() {
         </div>
       )}
 
-      {/* Mobile Bottom Navigation: Editor | Lectura | Menú */}
-      <MobileBottomNav
-        currentScreen={mobileScreen}
-        mode={mode}
-        onSetScreen={(s) => setMobileScreen(s)}
-        onSetMode={(m) => setMode(m)}
-        onOpenMore={() => setIsMobileMoreOpen(true)}
-        isMoreOpen={isMobileMoreOpen}
-      />
+      {/* Mobile chrome: play bar stacked ABOVE the 3-tab nav (never overlaps) */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex flex-col safe-bottom bg-[#F9F7F2]">
+        {(mobileScreen === 'prompter' || mode !== 'studio') && (
+          <ControlOverlay
+            settings={settings}
+            onUpdateSettings={handleUpdateSettings}
+            playbackStatus={playbackStatus}
+            onTogglePlay={handleTogglePlay}
+            onRestart={handleRestart}
+            onNudgeForward={handleNudgeForward}
+            onNudgeBackward={handleNudgeBackward}
+            elapsedSeconds={elapsedSeconds}
+            totalEstimatedSeconds={totalEstimatedSeconds}
+            wordCount={wordCount}
+            isVoiceActive={settings.speechTracking}
+            onToggleVoice={() => setSettings((s) => ({ ...s, speechTracking: !s.speechTracking }))}
+            isCameraActive={settings.cameraOverlay || mode === 'camera'}
+            onToggleCamera={() => setSettings((s) => ({
+              ...s,
+              cameraOverlay: !s.cameraOverlay,
+              cameraLayout: 'pip',
+            }))}
+            isMirrorActive={mode === 'mirror' || settings.mirrorX}
+            onToggleMirror={() => {
+              if (mode === 'mirror') {
+                setMode('fullscreen');
+                setSettings((s) => ({ ...s, mirrorX: false }));
+              } else {
+                setMode('mirror');
+                setMobileScreen('prompter');
+                setSettings((s) => ({ ...s, mirrorX: true }));
+              }
+            }}
+            isMobileScreen={true}
+            isRecording={isRecording}
+            recordingSeconds={recordingSeconds}
+            onToggleRecord={handleToggleRecord}
+            onOpenRecordingModal={() => setIsRecordingModalOpen(true)}
+            takesCount={takesHistory.length}
+          />
+        )}
+        <MobileBottomNav
+          currentScreen={mobileScreen}
+          mode={mode}
+          onSetScreen={(s) => setMobileScreen(s)}
+          onSetMode={(m) => setMode(m)}
+          onOpenMore={() => setIsMobileMoreOpen(true)}
+          isMoreOpen={isMobileMoreOpen}
+        />
+      </div>
 
       <MobileMoreSheet
         isOpen={isMobileMoreOpen}

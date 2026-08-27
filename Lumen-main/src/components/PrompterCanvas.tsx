@@ -734,26 +734,24 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
         </div>
       )}
 
-      {/* CORE WORKSPACE SURFACE: SIDE-BY-SIDE OR STANDARD */}
+      {/* CORE WORKSPACE: side-by-side — on mobile use vertical camera column (portrait), desktop half/half */}
       {isCameraEnabled && settings.cameraLayout === 'side-by-side' ? (
-        <div className="w-full h-full flex flex-col md:flex-row relative z-10">
-          {/* Camera on Left (Default) */}
+        <div className="w-full h-full flex flex-row relative z-10">
           {settings.cameraPosition === 'left' ? (
             <>
-              <div className="w-full md:w-1/2 h-[35%] md:h-full border-b md:border-b-0 md:border-r border-white/20 relative shrink-0">
+              <div className="w-[38%] md:w-1/2 h-full border-r border-white/20 relative shrink-0">
                 {renderWebcamSurface('side-by-side')}
               </div>
-              <div className="w-full md:w-1/2 h-[65%] md:h-full relative overflow-hidden">
+              <div className="flex-1 h-full relative overflow-hidden">
                 {renderPrompterTextSurface()}
               </div>
             </>
           ) : (
-            /* Camera on Right */
             <>
-              <div className="w-full md:w-1/2 h-[65%] md:h-full relative overflow-hidden order-2 md:order-1">
+              <div className="flex-1 h-full relative overflow-hidden order-1">
                 {renderPrompterTextSurface()}
               </div>
-              <div className="w-full md:w-1/2 h-[35%] md:h-full border-t md:border-t-0 md:border-l border-white/20 relative shrink-0 order-1 md:order-2">
+              <div className="w-[38%] md:w-1/2 h-full border-l border-white/20 relative shrink-0 order-2">
                 {renderWebcamSurface('side-by-side')}
               </div>
             </>
@@ -766,10 +764,10 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
         </div>
       )}
 
-      {/* FLOATING PICTURE-IN-PICTURE (PIP) CAMERA MODE */}
+      {/* FLOATING PICTURE-IN-PICTURE — portrait on phone, landscape on desktop */}
       {isCameraEnabled && settings.cameraLayout === 'pip' && (
         <div
-          className="absolute z-30 w-36 sm:w-52 md:w-80 aspect-video shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+          className="absolute z-30 w-[7.25rem] aspect-[9/16] sm:w-40 sm:aspect-[9/16] md:w-80 md:aspect-video shadow-2xl animate-in fade-in zoom-in-95 duration-200 rounded-md overflow-hidden"
           style={{
             left: `${pipPosition.x}px`,
             top: `${pipPosition.y}px`,

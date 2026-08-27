@@ -86,7 +86,7 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
   };
 
   return (
-    <div className="w-full bg-[#F9F7F2]/95 backdrop-blur-md border-t border-[#E0DDD5] px-3 sm:px-8 py-2 sm:py-3 select-none z-30 shadow-editorial">
+    <div className="w-full bg-[#F9F7F2] md:bg-[#F9F7F2]/95 md:backdrop-blur-md border-t border-[#E0DDD5] px-3 sm:px-8 py-2 sm:py-3 select-none z-30 md:shadow-editorial">
 
       {/* ——— MOBILE: one clean row ——— */}
       <div className="md:hidden flex flex-col gap-2">
