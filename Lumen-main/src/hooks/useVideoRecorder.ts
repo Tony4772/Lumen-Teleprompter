@@ -277,8 +277,9 @@ export const useVideoRecorder = ({
           }
 
           const rawMime = recorder.mimeType || mimeType || chunks[0]?.type || 'video/mp4';
-          const finalMime = rawMime.split(';')[0];
-          const blob = new Blob(chunks, { type: finalMime });
+          const finalMime = (rawMime.split(';')[0] || 'video/mp4').trim() || 'video/mp4';
+          const safeMime = finalMime.startsWith('video/') ? finalMime : 'video/mp4';
+          const blob = new Blob(chunks, { type: safeMime });
           if (blob.size < 50) {
             setIsRecording(false);
             return;
@@ -303,7 +304,7 @@ export const useVideoRecorder = ({
               second: '2-digit',
             }),
             fileSizeMb: Number((blob.size / (1024 * 1024)).toFixed(2)),
-            mimeType: finalMime,
+            mimeType: safeMime,
           };
 
           setLatestTake(newTake);

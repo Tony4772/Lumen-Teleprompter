@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { RecordedTake } from '../types';
 import { saveRecordedVideo } from '../hooks/useVideoRecorder';
 import { isAppleTouchDevice } from '../utils/cameraStreamStore';
@@ -25,6 +25,13 @@ interface RecordingModalProps {
   onClearAllTakes?: () => void;
 }
 
+/** Edge/Chrome a veces no muestran el primer frame de MP4 de MediaRecorder sin seek. */
+function previewSrc(url: string): string {
+  if (!url) return url;
+  if (url.includes('#t=')) return url;
+  return `${url}#t=0.001`;
+}
+
 export const RecordingModal: React.FC<RecordingModalProps> = ({
   isOpen,
   take,
@@ -38,6 +45,7 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
   const [customFilename, setCustomFilename] = useState<string>('');
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const previewRef = useRef<HTMLVideoElement>(null);
   const isApple = typeof navigator !== 'undefined' && isAppleTouchDevice();
 
   useEffect(() => {
@@ -54,6 +62,36 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
       setCustomFilename(`toma-${cleanTitle}-${new Date().toISOString().slice(0, 10)}`);
     }
   }, [isOpen, take, takesHistory]);
+
+  // Forzar primer frame visible en Edge / Chromium
+  useEffect(() => {
+    if (!isOpen) return;
+    const el = previewRef.current;
+    const takeId = selectedTake?.id || take?.id;
+    if (!el || !takeId) return;
+
+    const showFrame = () => {
+      try {
+        if (el.readyState >= 1 && el.currentTime < 0.05) {
+          el.currentTime = 0.05;
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    el.addEventListener('loadedmetadata', showFrame);
+    el.addEventListener('loadeddata', showFrame);
+    try {
+      el.load();
+    } catch {
+      // ignore
+    }
+    return () => {
+      el.removeEventListener('loadedmetadata', showFrame);
+      el.removeEventListener('loadeddata', showFrame);
+    };
+  }, [isOpen, selectedTake?.id, take?.id]);
 
   if (!isOpen) return null;
 
@@ -147,11 +185,12 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
           <div className="relative w-full aspect-video bg-black rounded-xs overflow-hidden border border-[#121212] shadow-sm">
             <video
               key={currentTake.id}
-              src={currentTake.url}
+              ref={previewRef}
+              src={previewSrc(currentTake.url)}
               controls
               playsInline
-              preload="metadata"
-              className="w-full h-full object-contain"
+              preload="auto"
+              className="w-full h-full object-contain bg-black"
             />
           </div>
 

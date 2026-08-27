@@ -1,13 +1,14 @@
 /**
  * Captura para grabación.
- * - Preview: nunca se suelta en Iniciar (evita recarga / teleprompter muerto).
- * - Mic: se pide en el gesto de Iniciar y se guarda para el recorder.
- * - Apple: MediaRecorder sobre canvas.captureStream(video) + pista de mic
- *   (addTrack sobre el stream de getUserMedia de cámara deja tomas mudas).
+ * - Safari / Edge iOS: mic aparte + canvas (funciona).
+ * - Chrome iOS (CriOS): no puede abrir mic con la cámara ya abierta →
+ *   en Iniciar soltar preview y pedir video+audio juntos (un solo gUM).
+ * - Preview del teleprompter no se bloquea si falla el mic.
  */
 import {
   getSharedCameraStream,
   setSharedCameraStream,
+  releaseSharedCameraStreamSync,
   isAppleTouchDevice,
 } from './cameraStreamStore';
 
@@ -21,6 +22,14 @@ export function isMobileDevice(): boolean {
     isAppleTouchDevice() ||
     /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   );
+}
+
+/** Chrome en iPhone/iPad (CriOS). No confundir con Edge iOS. */
+export function isChromeOnApple(): boolean {
+  if (typeof navigator === 'undefined' || !isAppleTouchDevice()) return false;
+  const ua = navigator.userAgent;
+  if (/EdgiOS|Edg\//i.test(ua)) return false;
+  return /CriOS/i.test(ua) || (/Chrome/i.test(ua) && /Mobile/i.test(ua));
 }
 
 export function pickRecorderMimeType(): string {
@@ -95,7 +104,6 @@ function requestMicInGesture(): Promise<MediaStream> {
         mic.getTracks().forEach((t) => t.stop());
         throw new Error('NO_AUDIO');
       }
-      // Sustituir mic anterior
       if (pendingMicStream && pendingMicStream !== mic) {
         pendingMicStream.getTracks().forEach((t) => {
           try {
@@ -110,20 +118,80 @@ function requestMicInGesture(): Promise<MediaStream> {
     });
 }
 
+/** Un solo getUserMedia video+audio (necesario en Chrome iOS). */
+function requestStrictAvStream(): Promise<MediaStream> {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return Promise.reject(new Error('NO_MEDIA_DEVICES'));
+  }
+  setAudioSessionPlayAndRecord();
+  return navigator.mediaDevices
+    .getUserMedia({ video: true, audio: true })
+    .catch(() =>
+      navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' },
+        audio: true,
+      })
+    )
+    .then((stream) => {
+      stream.getTracks().forEach((t) => {
+        t.enabled = true;
+      });
+      if (!isLive(stream, 'video') || !isLive(stream, 'audio')) {
+        stream.getTracks().forEach((t) => t.stop());
+        throw new Error('NO_AUDIO');
+      }
+      pendingMicStream = new MediaStream(stream.getAudioTracks());
+      setSharedCameraStream(stream, { stopPrevious: true });
+      return stream;
+    });
+}
+
+async function restoreVideoOnlyPreview(): Promise<MediaStream | null> {
+  try {
+    if (!navigator.mediaDevices?.getUserMedia) return null;
+    const videoOnly = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user' },
+      audio: false,
+    });
+    setSharedCameraStream(videoOnly, { stopPrevious: true });
+    return videoOnly;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * SÍNCRONO en el onClick de Iniciar.
- * No suelta la cámara. Pide mic en el gesto y lo deja listo para grabar.
  */
 export function beginAvCaptureFromUserGesture(): Promise<MediaStream> {
   setAudioSessionPlayAndRecord();
   const shared = getSharedCameraStream();
+
+  // Chrome iOS: el 2º getUserMedia({audio}) con cámara abierta falla → toma muda.
+  // Soltar y pedir AV juntos (puede parpadear; el teleprompter sigue).
+  if (isChromeOnApple()) {
+    if (shared && isLive(shared, 'video') && isLive(shared, 'audio')) {
+      shared.getTracks().forEach((t) => {
+        t.enabled = true;
+      });
+      pendingMicStream = new MediaStream(shared.getAudioTracks());
+      return Promise.resolve(shared);
+    }
+    if (shared) {
+      releaseSharedCameraStreamSync();
+    }
+    return requestStrictAvStream().catch(async (err) => {
+      const restored = await restoreVideoOnlyPreview();
+      if (restored) return restored;
+      throw err;
+    });
+  }
 
   if (shared && isLive(shared, 'video')) {
     shared.getVideoTracks().forEach((t) => {
       t.enabled = true;
     });
 
-    // Si el preview ya trae mic live del mismo gUM, úsalo también como pending
     if (isLive(shared, 'audio')) {
       pendingMicStream = new MediaStream(shared.getAudioTracks());
       return Promise.resolve(shared);
@@ -133,7 +201,6 @@ export function beginAvCaptureFromUserGesture(): Promise<MediaStream> {
       return Promise.resolve(shared);
     }
 
-    // Pedir mic YA (gesto). El teleprompter no espera a que falle.
     return requestMicInGesture()
       .then(() => shared)
       .catch(() => shared);
@@ -181,8 +248,8 @@ export type RecorderSurface = {
 
 /**
  * Stream para MediaRecorder.
- * Apple: canvas con frames de la cámara + pistas del mic (único camino fiable).
- * Resto: stream de cámara (con mic si ya está).
+ * Si el stream ya trae video+audio del mismo gUM → usarlo directo.
+ * Safari/Edge iOS sin audio en cámara → canvas + mic aparte.
  */
 export async function createRecorderSurface(cameraStream: MediaStream): Promise<RecorderSurface> {
   const videoTracks = cameraStream.getVideoTracks().filter((t) => t.readyState === 'live');
@@ -196,7 +263,15 @@ export async function createRecorderSurface(cameraStream: MediaStream): Promise<
     pendingMicStream = mic;
   }
 
-  // Escritorio / Android: si ya hay audio en el stream de cámara, usarlo directo
+  // Stream ya AV completo (p.ej. Chrome iOS tras Iniciar) → grabar directo
+  if (isLive(cameraStream, 'video') && isLive(cameraStream, 'audio')) {
+    return {
+      stream: cameraStream,
+      stop: () => {},
+    };
+  }
+
+  // Escritorio / Android
   if (!isAppleTouchDevice()) {
     if (mic && !isLive(cameraStream, 'audio')) {
       mic.getAudioTracks().forEach((t) => {
@@ -209,15 +284,12 @@ export async function createRecorderSurface(cameraStream: MediaStream): Promise<
     }
     return {
       stream: cameraStream,
-      stop: () => {
-        // no detener cámara/mic compartidos
-      },
+      stop: () => {},
     };
   }
 
-  // ——— Apple: canvas + mic ———
+  // Safari / Edge iOS: canvas + mic
   if (!mic || !isLive(mic, 'audio')) {
-    // Sin mic: grabar solo video (mejor que romper)
     return {
       stream: new MediaStream(videoTracks),
       stop: () => {},
@@ -239,7 +311,6 @@ export async function createRecorderSurface(cameraStream: MediaStream): Promise<
     console.warn('recorder helper video play:', err);
   }
 
-  // Esperar dimensiones reales
   await new Promise<void>((resolve) => {
     if (video.videoWidth > 0) {
       resolve();
@@ -273,16 +344,12 @@ export async function createRecorderSurface(cameraStream: MediaStream): Promise<
   };
   pump();
 
-  const fps = 30;
   const canvasStream =
-    typeof (canvas as HTMLCanvasElement).captureStream === 'function'
-      ? canvas.captureStream(fps)
-      : null;
+    typeof canvas.captureStream === 'function' ? canvas.captureStream(30) : null;
 
   if (!canvasStream || !canvasStream.getVideoTracks().length) {
     window.cancelAnimationFrame(canvasPumpRaf);
     canvasPumpRaf = 0;
-    // Fallback: intentar stream combinado crudo
     return {
       stream: new MediaStream([...videoTracks, ...mic.getAudioTracks()]),
       stop: () => {
@@ -313,7 +380,6 @@ export async function createRecorderSurface(cameraStream: MediaStream): Promise<
       video.pause();
       video.srcObject = null;
       canvasHelperVideo = null;
-      // NO detener mic ni cámara del preview
     },
   };
 }
