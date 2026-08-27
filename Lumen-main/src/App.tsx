@@ -85,6 +85,15 @@ export default function App() {
         // Nunca auto-activar voz al cargar: en móvil el ASR sin gesto del usuario
         // dispara "not-allowed" y muestra el error rojo.
         loaded.speechTracking = false;
+        // Móvil: no restaurar cámara encendida. getUserMedia sin toque = permiso denegado
+        // y luego Iniciar falla con "Permiso bloqueado".
+        if (
+          typeof navigator !== 'undefined' &&
+          (/iPad|iPhone|iPod|Android/i.test(navigator.userAgent) ||
+            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
+        ) {
+          loaded.cameraOverlay = false;
+        }
         return loaded;
       }
     } catch (e) {
@@ -284,6 +293,8 @@ export default function App() {
       const ready = await adoptAvPromise(avPromise);
       if (!ready) {
         setPlaybackStatus('idle');
+        // Quitar preview roto para no acumular "No se pudo acceder a la cámara"
+        setSettings((prev) => ({ ...prev, cameraOverlay: false }));
         return;
       }
 
