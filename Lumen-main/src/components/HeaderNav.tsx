@@ -16,7 +16,6 @@ import {
   Gauge,
   Minus,
   Plus,
-  Square,
   Film,
   Heart,
   BookOpen
@@ -212,50 +211,47 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
           </div>
         )}
 
-        {onToggleRecord && (
-          <div className="hidden md:flex items-center gap-1.5">
-            <button
-              onClick={onToggleRecord}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-mono font-bold shadow-editorial border ${
-                isRecording
-                  ? 'bg-red-600 text-white animate-pulse border-red-400'
-                  : 'bg-white text-red-600 border-red-200 hover:border-red-400'
-              }`}
-              title={isRecording ? 'Detener y guardar grabación' : 'Iniciar grabación de video'}
-            >
-              {isRecording ? (
-                <>
-                  <Square className="w-3.5 h-3.5 fill-current" />
-                  <span>{formatRecTime(recordingSeconds)}</span>
-                  <span className="text-[9px] uppercase tracking-wider bg-black/30 px-1.5 py-0.5 rounded-xs">
-                    Detener
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-600" />
-                  <span>Grabar</span>
-                </>
-              )}
-            </button>
-            {takesCount > 0 && onOpenRecordingModal && (
-              <button onClick={onOpenRecordingModal} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white border border-[#D6D2C4] text-xs font-mono font-bold">
-                <Film className="w-3.5 h-3.5" /><span>{takesCount}</span>
-              </button>
-            )}
-          </div>
+        {takesCount > 0 && onOpenRecordingModal && (
+          <button
+            onClick={onOpenRecordingModal}
+            className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white border border-[#D6D2C4] text-xs font-mono font-bold"
+            title="Tomas guardadas"
+          >
+            <Film className="w-3.5 h-3.5" />
+            <span>{takesCount}</span>
+          </button>
         )}
 
         <button
           onClick={onTogglePlay}
           className={`hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] uppercase tracking-widest font-mono font-bold border ${
-            playbackStatus === 'playing' ? 'bg-[#121212] text-white border-[#121212]' : 'bg-white text-[#666] border-[#E0DDD5]'
+            isRecording
+              ? 'bg-red-600 text-white border-red-400 animate-pulse'
+              : playbackStatus === 'playing'
+                ? 'bg-[#121212] text-white border-[#121212]'
+                : 'bg-white text-[#666] border-[#E0DDD5]'
           }`}
+          title={
+            playbackStatus === 'playing' || isRecording
+              ? 'Pausar texto y detener grabación'
+              : 'Iniciar texto + grabar cámara'
+          }
         >
-          {playbackStatus === 'playing' ? (
-            <><span className="w-2 h-2 rounded-full bg-white animate-ping" /><span>EN VIVO</span></>
+          {isRecording ? (
+            <>
+              <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+              <span>REC {formatRecTime(recordingSeconds)}</span>
+            </>
+          ) : playbackStatus === 'playing' ? (
+            <>
+              <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+              <span>EN VIVO</span>
+            </>
           ) : (
-            <><span className="w-2 h-2 rounded-full bg-[#999]" /><span>PAUSA</span></>
+            <>
+              <span className="w-2 h-2 rounded-full bg-[#999]" />
+              <span>INICIAR</span>
+            </>
           )}
         </button>
 

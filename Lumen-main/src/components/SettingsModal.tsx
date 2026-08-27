@@ -244,6 +244,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
+          {/* Countdown before play + record */}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] font-bold text-[#666]">
+              <Clock className="w-3.5 h-3.5 text-[#121212]" />
+              <span>Cuenta Regresiva</span>
+            </div>
+            <div className="bg-white p-4 rounded-xs border border-[#E0DDD5] shadow-2xs">
+              <p className="text-[11px] text-[#666] mb-3">
+                Segundos antes de mover el texto y empezar a grabar. Por defecto: 5.
+              </p>
+              <div className="flex gap-2">
+                {([3, 5, 10] as const).map((sec) => (
+                  <button
+                    key={sec}
+                    type="button"
+                    onClick={() => onUpdateSettings({ countdownSeconds: sec })}
+                    className={`flex-1 py-2.5 rounded-xs border text-sm font-mono font-bold transition-colors ${
+                      settings.countdownSeconds === sec
+                        ? 'bg-[#121212] text-white border-[#121212]'
+                        : 'bg-[#F9F7F2] text-[#121212] border-[#E0DDD5] hover:border-[#121212]'
+                    }`}
+                  >
+                    {sec}s
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
           {/* Section 4: Hardware Mirroring & Inversion */}
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] font-bold text-[#666]">

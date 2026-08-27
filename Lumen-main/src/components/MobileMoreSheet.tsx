@@ -10,7 +10,9 @@ import {
   Heart,
   Film,
   Square,
+  Play,
 } from 'lucide-react';
+import { PlaybackStatus } from '../types';
 
 interface MobileMoreSheetProps {
   isOpen: boolean;
@@ -22,8 +24,8 @@ interface MobileMoreSheetProps {
   isVoiceActive: boolean;
   onToggleVoice: () => void;
   isRecording: boolean;
-  recordingSeconds: number;
-  onToggleRecord?: () => void;
+  playbackStatus: PlaybackStatus;
+  onTogglePlay: () => void;
   takesCount: number;
   onOpenRecordingModal?: () => void;
   onOpenLibrary: () => void;
@@ -44,8 +46,8 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
   isVoiceActive,
   onToggleVoice,
   isRecording,
-  recordingSeconds,
-  onToggleRecord,
+  playbackStatus,
+  onTogglePlay,
   takesCount,
   onOpenRecordingModal,
   onOpenLibrary,
@@ -56,12 +58,6 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
   onCycleCameraLayout,
 }) => {
   if (!isOpen) return null;
-
-  const formatRecTime = (sec: number) => {
-    const mins = Math.floor(sec / 60);
-    const secs = sec % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
 
   const run = (fn: () => void) => {
     fn();
@@ -78,48 +74,38 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
       type="button"
       onClick={onClick}
       className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors active:bg-[#EFECE6] ${
-        opts?.active ? 'bg-[#EFECE6]' : 'bg-white'
+        opts?.danger ? 'text-red-700' : opts?.active ? 'bg-[#EFECE6]' : 'text-[#121212]'
       }`}
     >
       <span
-        className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+        className={`w-9 h-9 rounded-full border flex items-center justify-center shrink-0 ${
           opts?.danger
-            ? 'bg-red-600 text-white'
+            ? 'border-red-200 bg-red-50 text-red-600'
             : opts?.active
-            ? 'bg-[#121212] text-white'
-            : 'bg-[#F4F1EA] text-[#121212]'
+              ? 'border-[#121212] bg-[#121212] text-white'
+              : 'border-[#E0DDD5] bg-white'
         }`}
       >
         {icon}
       </span>
       <span className="flex-1 min-w-0">
-        <span className="block text-sm font-semibold text-[#121212]">{label}</span>
-        {opts?.hint && (
-          <span className="block text-[11px] text-[#888] font-mono mt-0.5 truncate">{opts.hint}</span>
-        )}
+        <span className="block text-sm font-semibold">{label}</span>
+        {opts?.hint && <span className="block text-[11px] text-[#888] mt-0.5">{opts.hint}</span>}
       </span>
-      {opts?.active && (
-        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-          ON
-        </span>
-      )}
     </button>
   );
 
   return (
-    <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
+    <div className="fixed inset-0 z-50 md:hidden">
       <button
         type="button"
-        className="absolute inset-0 bg-black/45"
+        className="absolute inset-0 bg-[#121212]/45 backdrop-blur-[2px]"
         aria-label="Cerrar menú"
         onClick={onClose}
       />
-      <div className="relative bg-[#F9F7F2] rounded-t-2xl shadow-editorial-lg border-t border-[#E0DDD5] max-h-[78dvh] overflow-y-auto safe-bottom animate-in slide-in-from-bottom duration-200">
-        <div className="sticky top-0 bg-[#F9F7F2] z-10 flex items-center justify-between px-4 pt-3 pb-2 border-b border-[#E0DDD5]">
-          <div>
-            <p className="text-sm font-serif italic font-bold text-[#121212]">Más opciones</p>
-            <p className="text-[10px] font-mono text-[#888] uppercase tracking-wider">Todo en un solo lugar</p>
-          </div>
+      <div className="absolute bottom-0 left-0 right-0 bg-[#F9F7F2] rounded-t-2xl border-t border-[#E0DDD5] shadow-editorial-lg max-h-[75vh] overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-[#E0DDD5]">
+          <h2 className="text-sm font-serif italic font-bold">Más opciones</h2>
           <button
             type="button"
             onClick={onClose}
@@ -129,24 +115,27 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
           </button>
         </div>
 
-        <div className="divide-y divide-[#E0DDD5]">
-          {row('Mis guiones', <FolderOpen className="w-4 h-4" />, () => run(onOpenLibrary), {
-            hint: 'Biblioteca y documentos',
-          })}
-          {row('Cámara', <Camera className="w-4 h-4" />, () => {
-            onToggleCamera();
-            onClose();
-          }, {
-            active: isCameraActive,
-            hint: isCameraActive ? 'Toca para apagar' : 'Ventana flotante sobre el texto',
-          })}
-          {isCameraActive && onCycleCameraLayout && (
-            row('Vista de cámara', <Camera className="w-4 h-4" />, () => {
-              onCycleCameraLayout();
-            }, {
-              hint: `Actual: ${cameraLayoutLabel || 'Flotante'} · toca para cambiar`,
-            })
+        <div className="divide-y divide-[#E0DDD5]/80">
+          {row('Biblioteca de guiones', <FolderOpen className="w-4 h-4" />, () => run(onOpenLibrary))}
+          {row(
+            isCameraActive ? 'Apagar cámara' : 'Encender cámara',
+            <Camera className="w-4 h-4" />,
+            () => {
+              onToggleCamera();
+              onClose();
+            },
+            { active: isCameraActive }
           )}
+          {onCycleCameraLayout &&
+            row(
+              `Layout cámara: ${cameraLayoutLabel || 'PiP'}`,
+              <Camera className="w-4 h-4" />,
+              () => {
+                onCycleCameraLayout();
+                onClose();
+              },
+              { hint: 'Flotante / Dividido / Fondo' }
+            )}
           {row('Modo espejo', <FlipHorizontal className="w-4 h-4" />, () => {
             onToggleMirror();
             onClose();
@@ -159,19 +148,24 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
             onClose();
           }, {
             active: isVoiceActive,
-            hint: 'El texto avanza cuando hablas',
+            hint: 'El texto avanza cuando hablas (Chrome/Edge)',
           })}
-          {onToggleRecord &&
-            row(
-              isRecording ? `Detener ${formatRecTime(recordingSeconds)}` : 'Grabar video',
-              isRecording ? <Square className="w-4 h-4 fill-current" /> : <span className="w-2.5 h-2.5 rounded-full bg-red-600" />,
-              () => {
-                onToggleRecord();
-                onClose();
-              },
-              { danger: isRecording, hint: 'Graba cámara + audio' }
-            )}
-          {takesCount > 0 && onOpenRecordingModal &&
+          {row(
+            isRecording || playbackStatus === 'playing'
+              ? 'Pausar / detener grabación'
+              : 'Iniciar (texto + grabar)',
+            isRecording ? <Square className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4" />,
+            () => {
+              onTogglePlay();
+              onClose();
+            },
+            {
+              danger: isRecording,
+              hint: 'Un solo botón: mueve el texto y graba la cámara',
+            }
+          )}
+          {takesCount > 0 &&
+            onOpenRecordingModal &&
             row('Tomas guardadas', <Film className="w-4 h-4" />, () => run(onOpenRecordingModal), {
               hint: `${takesCount} video${takesCount === 1 ? '' : 's'}`,
             })}
@@ -179,7 +173,7 @@ export const MobileMoreSheet: React.FC<MobileMoreSheetProps> = ({
             hint: 'Generar o mejorar guiones',
           })}
           {row('Ajustes', <Settings className="w-4 h-4" />, () => run(onOpenSettings), {
-            hint: 'Tipografía, colores, cámara…',
+            hint: 'Tipografía, colores, cámara, cuenta regresiva…',
           })}
           {onOpenDonation &&
             row('Donar S/ 1+', <Heart className="w-4 h-4 fill-current" />, () => run(onOpenDonation), {

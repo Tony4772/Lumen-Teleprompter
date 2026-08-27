@@ -1,45 +1,29 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { extractScriptWords, normalizeSpeechToken } from '../utils/prompterUtils';
 
 interface SpeechFollowerOptions {
   enabled: boolean;
   scriptContent: string;
   onMatchProgress?: (ratio: number, matchedWord: string, wordIndex: number) => void;
-}
-
-/** Normalize for Spanish speech matching (accents, punctuation). */
-function normalizeToken(raw: string): string {
-  return raw
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^\wñ]/gi, '')
-    .trim();
+  onPermissionDenied?: () => void;
 }
 
 function tokensMatch(spoken: string, script: string): boolean {
   if (!spoken || !script) return false;
   if (spoken === script) return true;
-  // Short words: exact only (avoid false positives like "a"/"al")
   if (spoken.length <= 2 || script.length <= 2) return spoken === script;
   if (spoken.includes(script) || script.includes(spoken)) return true;
-  // Prefix match for conjugated / truncated ASR results
   const minLen = Math.min(4, Math.min(spoken.length, script.length));
   if (spoken.slice(0, minLen) === script.slice(0, minLen)) return true;
   return false;
 }
 
-function extractScriptWords(content: string): string[] {
-  const clean = content
-    .replace(/\[.*?\]/g, ' ')
-    .replace(/#+\s*/g, ' ')
-    .replace(/[.,/#!$%^&*;:{}=\-_`~()?"'¡¿…]/g, ' ');
-  return clean
-    .split(/\s+/)
-    .map(normalizeToken)
-    .filter((w) => w.length > 0);
-}
-
-export function useSpeechFollower({ enabled, scriptContent, onMatchProgress }: SpeechFollowerOptions) {
+export function useSpeechFollower({
+  enabled,
+  scriptContent,
+  onMatchProgress,
+  onPermissionDenied,
+}: SpeechFollowerOptions) {
   const [isListening, setIsListening] = useState(false);
   const [lastTranscript, setLastTranscript] = useState('');
   const [recognizedWordsCount, setRecognizedWordsCount] = useState(0);
@@ -50,10 +34,14 @@ export function useSpeechFollower({ enabled, scriptContent, onMatchProgress }: S
   const currentWordPointerRef = useRef(0);
   const enabledRef = useRef(enabled);
   const onMatchProgressRef = useRef(onMatchProgress);
+  const onPermissionDeniedRef = useRef(onPermissionDenied);
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startListeningRef = useRef<() => void>(() => {});
+  const intentionalStopRef = useRef(false);
 
   enabledRef.current = enabled;
   onMatchProgressRef.current = onMatchProgress;
+  onPermissionDeniedRef.current = onPermissionDenied;
 
   useEffect(() => {
     scriptWordsRef.current = extractScriptWords(scriptContent);
@@ -69,7 +57,6 @@ export function useSpeechFollower({ enabled, scriptContent, onMatchProgress }: S
     onMatchProgressRef.current?.(ratio, word, idx);
   }, []);
 
-  /** Advance pointer using newly heard tokens (final + interim). */
   const matchSpokenTokens = useCallback(
     (spokenTokens: string[]) => {
       const scriptWords = scriptWordsRef.current;
@@ -78,11 +65,10 @@ export function useSpeechFollower({ enabled, scriptContent, onMatchProgress }: S
       let pointer = currentWordPointerRef.current;
 
       for (const spoken of spokenTokens) {
-        const token = normalizeToken(spoken);
+        const token = normalizeSpeechToken(spoken);
         if (!token) continue;
 
-        // Look ahead from current position (skip missed filler words)
-        const searchEnd = Math.min(scriptWords.length, pointer + 12);
+        const searchEnd = Math.min(scriptWords.length, pointer + 14);
         let matched = false;
 
         for (let idx = pointer; idx < searchEnd; idx++) {
@@ -94,12 +80,10 @@ export function useSpeechFollower({ enabled, scriptContent, onMatchProgress }: S
           }
         }
 
-        // If no forward match, try a small look-back (ASR corrections)
         if (!matched) {
           const lookBack = Math.max(0, pointer - 3);
           for (let idx = lookBack; idx < pointer; idx++) {
             if (tokensMatch(token, scriptWords[idx])) {
-              // Don't move backward; ignore already-matched echoes
               matched = true;
               break;
             }
@@ -111,6 +95,7 @@ export function useSpeechFollower({ enabled, scriptContent, onMatchProgress }: S
   );
 
   const stopListening = useCallback(() => {
+    intentionalStopRef.current = true;
     if (restartTimerRef.current) {
       clearTimeout(restartTimerRef.current);
       restartTimerRef.current = null;
@@ -144,10 +129,14 @@ export function useSpeechFollower({ enabled, scriptContent, onMatchProgress }: S
       return;
     }
 
-    // Tear down any previous instance without flipping enabledRef
+    intentionalStopRef.current = false;
+
     if (recognitionRef.current) {
       const prev = recognitionRef.current;
       prev.onend = null;
+      prev.onerror = null;
+      prev.onresult = null;
+      prev.onstart = null;
       try {
         prev.abort();
       } catch {
@@ -159,8 +148,8 @@ export function useSpeechFollower({ enabled, scriptContent, onMatchProgress }: S
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'es-ES';
-    recognition.maxAlternatives = 1;
+    recognition.lang = 'es-PE';
+    recognition.maxAlternatives = 3;
 
     recognition.onstart = () => {
       setIsListening(true);
@@ -174,13 +163,13 @@ export function useSpeechFollower({ enabled, scriptContent, onMatchProgress }: S
         setError('Permiso de micrófono denegado. Actívalo en el navegador.');
         enabledRef.current = false;
         setIsListening(false);
+        onPermissionDeniedRef.current?.();
         return;
       }
       if (code === 'audio-capture') {
         setError('No se encontró un micrófono.');
         return;
       }
-      // no-speech / aborted / network — allow auto-restart via onend
       if (code !== 'no-speech' && code !== 'aborted') {
         setError(`Error de voz: ${code}`);
       }
@@ -188,17 +177,13 @@ export function useSpeechFollower({ enabled, scriptContent, onMatchProgress }: S
 
     recognition.onend = () => {
       setIsListening(false);
-      if (!enabledRef.current) return;
-      // Chrome stops continuous recognition periodically; restart gently
+      if (intentionalStopRef.current || !enabledRef.current) return;
+      // Chrome corta el reconocimiento continuo: recrear instancia (no reusar la misma)
       if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
       restartTimerRef.current = setTimeout(() => {
-        if (!enabledRef.current || !recognitionRef.current) return;
-        try {
-          recognitionRef.current.start();
-        } catch (e) {
-          console.warn('Could not restart speech recognition', e);
-        }
-      }, 280);
+        if (!enabledRef.current || intentionalStopRef.current) return;
+        startListeningRef.current();
+      }, 320);
     };
 
     recognition.onresult = (event: any) => {
@@ -206,36 +191,51 @@ export function useSpeechFollower({ enabled, scriptContent, onMatchProgress }: S
       let interimChunk = '';
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const piece = event.results[i][0]?.transcript || '';
-        if (event.results[i].isFinal) {
-          finalChunk += `${piece} `;
+        const result = event.results[i];
+        const best = result[0]?.transcript || '';
+        if (result.isFinal) {
+          finalChunk += `${best} `;
         } else {
-          interimChunk += piece;
+          interimChunk += best;
         }
       }
 
       const display = (finalChunk || interimChunk).trim();
       if (display) setLastTranscript(display);
 
-      // Prefer final tokens for advancing; also use interim last words for snappiness
       const finalTokens = finalChunk.trim().split(/\s+/).filter(Boolean);
       if (finalTokens.length > 0) {
         matchSpokenTokens(finalTokens);
       } else if (interimChunk.trim()) {
         const interimTokens = interimChunk.trim().split(/\s+/).filter(Boolean);
-        // Only try the last 1–2 interim words to avoid jumping ahead
-        matchSpokenTokens(interimTokens.slice(-2));
+        matchSpokenTokens(interimTokens.slice(-3));
       }
     };
 
     recognitionRef.current = recognition;
-    try {
-      recognition.start();
-    } catch (err) {
-      console.error('Error starting speech recognition:', err);
-      setError('No se pudo iniciar el micrófono');
-    }
+
+    const kickOff = async () => {
+      // Desbloquear micrófono en algunos navegadores antes del SpeechRecognition
+      try {
+        if (navigator.mediaDevices?.getUserMedia) {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream.getTracks().forEach((t) => t.stop());
+        }
+      } catch {
+        // SpeechRecognition pedirá permiso igual
+      }
+      try {
+        recognition.start();
+      } catch (err) {
+        console.error('Error starting speech recognition:', err);
+        setError('No se pudo iniciar el micrófono');
+      }
+    };
+
+    void kickOff();
   }, [matchSpokenTokens]);
+
+  startListeningRef.current = startListening;
 
   const resetVoiceTracking = useCallback(() => {
     currentWordPointerRef.current = 0;
@@ -254,8 +254,6 @@ export function useSpeechFollower({ enabled, scriptContent, onMatchProgress }: S
     return () => {
       stopListening();
     };
-    // Intentionally only depend on `enabled` — startListening/stopListening are stable enough
-    // via refs; re-creating recognition on every callback change was killing tracking.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled]);
 

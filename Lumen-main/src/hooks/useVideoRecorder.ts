@@ -74,34 +74,49 @@ export const useVideoRecorder = ({
   }, []);
 
   const startRecording = useCallback(
-    async (existingStream?: MediaStream | null) => {
+    async (
+      existingStream?: MediaStream | null,
+      options?: { videoOnly?: boolean }
+    ) => {
       setRecorderError(null);
       recordedChunksRef.current = [];
+      const videoOnly = Boolean(options?.videoOnly);
 
       try {
         let stream = existingStream;
 
-        // If no stream provided or stream has no audio, request fresh combined stream (video + audio)
-        if (!stream || stream.getAudioTracks().length === 0) {
+        // Si hay seguimiento por voz, no pedir audio: deja el mic libre para SpeechRecognition
+        const needsFreshStream =
+          !stream || (!videoOnly && stream.getAudioTracks().length === 0);
+
+        if (needsFreshStream) {
           stream = await navigator.mediaDevices.getUserMedia({
             video: {
               width: { ideal: 1280 },
               height: { ideal: 720 },
               facingMode: 'user',
             },
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true,
-            },
+            audio: videoOnly
+              ? false
+              : {
+                  echoCancellation: true,
+                  noiseSuppression: true,
+                  autoGainControl: true,
+                },
+          });
+        } else if (videoOnly && stream) {
+          // Quitar pistas de audio del stream existente para no pelear con el ASR
+          stream.getAudioTracks().forEach((t) => {
+            t.stop();
+            stream!.removeTrack(t);
           });
         }
 
-        activeStreamRef.current = stream;
+        activeStreamRef.current = stream!;
         const mimeType = getSupportedVideoMimeType();
-        const options: MediaRecorderOptions = mimeType ? { mimeType } : {};
+        const recorderOptions: MediaRecorderOptions = mimeType ? { mimeType } : {};
 
-        const recorder = new MediaRecorder(stream, options);
+        const recorder = new MediaRecorder(stream!, recorderOptions);
         mediaRecorderRef.current = recorder;
 
         recorder.ondataavailable = (event) => {
@@ -137,7 +152,7 @@ export const useVideoRecorder = ({
           }
         };
 
-        recorder.start(500); // 500ms chunks
+        recorder.start(500);
         recordingStartTimeRef.current = Date.now();
         setIsRecording(true);
         setRecordingSeconds(0);

@@ -15,7 +15,6 @@ import {
   ChevronDown,
   Plus,
   Minus,
-  Square,
 } from 'lucide-react';
 import { PrompterSettings, PlaybackStatus } from '../types';
 import { formatTime } from '../utils/prompterUtils';
@@ -146,15 +145,49 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
               triggerHaptic(30);
               onTogglePlay();
             }}
-            className="w-14 h-14 rounded-full bg-[#121212] text-white flex items-center justify-center shadow-editorial active:scale-95 shrink-0"
-            title={isPlaying ? 'Pausar' : 'Reproducir'}
+            className={`w-14 h-14 rounded-full text-white flex items-center justify-center shadow-editorial active:scale-95 shrink-0 relative ${
+              isRecording ? 'bg-red-600 animate-pulse' : 'bg-[#121212]'
+            }`}
+            title={
+              isPlaying || isRecording
+                ? 'Pausar texto y detener grabación'
+                : 'Iniciar texto + grabar cámara'
+            }
           >
-            {isPlaying ? (
+            {isPlaying || isRecording ? (
               <Pause className="w-6 h-6 fill-current" />
             ) : (
               <Play className="w-6 h-6 fill-current ml-0.5" />
             )}
+            {isRecording && (
+              <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[8px] font-mono font-bold bg-black/70 px-1 rounded-xs tabular-nums">
+                {formatRecTime(recordingSeconds)}
+              </span>
+            )}
           </button>
+
+          <div className="h-11 px-1 rounded-full bg-white border border-[#E0DDD5] flex flex-col items-center justify-center min-w-[52px]">
+            <span className="text-[7px] font-bold uppercase text-[#888] leading-none">Cuenta</span>
+            <div className="flex items-center gap-0.5 mt-0.5">
+              {([3, 5, 10] as const).map((sec) => (
+                <button
+                  key={sec}
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic(10);
+                    onUpdateSettings({ countdownSeconds: sec });
+                  }}
+                  className={`w-5 h-5 rounded-full text-[9px] font-mono font-bold ${
+                    settings.countdownSeconds === sec
+                      ? 'bg-[#121212] text-white'
+                      : 'bg-[#F4F1EA] text-[#666]'
+                  }`}
+                >
+                  {sec}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <button
             type="button"
@@ -172,34 +205,6 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
             <Gauge className="w-3.5 h-3.5" />
             <span>{settings.wpm}</span>
           </button>
-
-          {onToggleRecord && (
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic(30);
-                onToggleRecord();
-              }}
-              className={`h-11 px-2.5 rounded-full border flex flex-col items-center justify-center font-mono font-bold active:scale-95 min-w-[52px] ${
-                isRecording
-                  ? 'bg-red-600 text-white border-red-500 animate-pulse'
-                  : 'bg-white text-red-600 border-red-200'
-              }`}
-              title={isRecording ? 'Detener grabación' : 'Grabar video'}
-            >
-              {isRecording ? (
-                <>
-                  <Square className="w-3.5 h-3.5 fill-current" />
-                  <span className="text-[8px] tabular-nums">{formatRecTime(recordingSeconds)}</span>
-                </>
-              ) : (
-                <>
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-600" />
-                  <span className="text-[8px] uppercase">Grabar</span>
-                </>
-              )}
-            </button>
-          )}
 
           <button
             type="button"
@@ -256,10 +261,25 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
           </button>
           <button
             onClick={() => { triggerHaptic(30); onTogglePlay(); }}
-            className="w-14 h-14 rounded-full bg-[#121212] hover:bg-[#2a2a2a] text-white flex items-center justify-center shadow-editorial transition-all hover:scale-105"
-            title={isPlaying ? 'Pausar' : 'Reproducir'}
+            className={`w-14 h-14 rounded-full text-white flex items-center justify-center shadow-editorial transition-all hover:scale-105 relative ${
+              isRecording ? 'bg-red-600 animate-pulse' : 'bg-[#121212] hover:bg-[#2a2a2a]'
+            }`}
+            title={
+              isPlaying || isRecording
+                ? 'Pausar texto y detener grabación'
+                : 'Iniciar texto + grabar cámara'
+            }
           >
-            {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
+            {isPlaying || isRecording ? (
+              <Pause className="w-5 h-5 fill-current" />
+            ) : (
+              <Play className="w-5 h-5 fill-current ml-0.5" />
+            )}
+            {isRecording && (
+              <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[9px] font-mono font-bold bg-black/70 px-1.5 rounded-xs tabular-nums">
+                REC {formatRecTime(recordingSeconds)}
+              </span>
+            )}
           </button>
           <button
             onClick={() => { triggerHaptic(15); onNudgeForward(); }}
@@ -269,30 +289,24 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
             <FastForward className="w-3.5 h-3.5" />
           </button>
 
-          {onToggleRecord && (
-            <button
-              onClick={() => { triggerHaptic(30); onToggleRecord(); }}
-              className={`h-11 px-3.5 rounded-full border flex items-center gap-1.5 font-mono text-xs font-bold transition-all ${
-                isRecording
-                  ? 'bg-red-600 text-white border-red-500 animate-pulse'
-                  : 'bg-white text-red-600 border-red-200 hover:border-red-400'
-              }`}
-              title={isRecording ? 'Detener y guardar grabación' : 'Iniciar grabación de video'}
-            >
-              {isRecording ? (
-                <>
-                  <Square className="w-3.5 h-3.5 fill-current" />
-                  <span>{formatRecTime(recordingSeconds)}</span>
-                  <span className="text-[9px] uppercase tracking-wider bg-black/25 px-1.5 py-0.5 rounded-xs">Detener</span>
-                </>
-              ) : (
-                <>
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-600" />
-                  <span>Grabar</span>
-                </>
-              )}
-            </button>
-          )}
+          <div className="h-10 px-2 rounded-full bg-white border border-[#E0DDD5] flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-[#666]" />
+            <span className="text-[9px] font-bold uppercase text-[#888]">Cuenta</span>
+            {([3, 5, 10] as const).map((sec) => (
+              <button
+                key={sec}
+                type="button"
+                onClick={() => onUpdateSettings({ countdownSeconds: sec })}
+                className={`w-7 h-7 rounded-full text-[10px] font-mono font-bold ${
+                  settings.countdownSeconds === sec
+                    ? 'bg-[#121212] text-white'
+                    : 'bg-[#F4F1EA] text-[#666] hover:bg-[#E0DDD5]'
+                }`}
+              >
+                {sec}s
+              </button>
+            ))}
+          </div>
 
           {onToggleMirror && (
             <button

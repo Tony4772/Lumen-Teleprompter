@@ -6,6 +6,31 @@ export function countWords(text: string): number {
   return words.length;
 }
 
+/** Same tokenization as voice follower — keeps scroll index aligned with ASR. */
+export function normalizeSpeechToken(raw: string): string {
+  return raw
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\wñ]/gi, '')
+    .trim();
+}
+
+export function extractScriptWords(content: string): string[] {
+  const clean = content
+    .replace(/\[.*?\]/g, ' ')
+    .replace(/#+\s*/g, ' ')
+    .replace(/[.,/#!$%^&*;:{}=\-_`~()?"'¡¿…]/g, ' ');
+  return clean
+    .split(/\s+/)
+    .map(normalizeSpeechToken)
+    .filter((w) => w.length > 0);
+}
+
+export function countLineScriptWords(text: string): number {
+  return extractScriptWords(text || '').length;
+}
+
 export function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);

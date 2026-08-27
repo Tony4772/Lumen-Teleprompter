@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { PrompterSettings, PlaybackStatus, CameraLayout } from '../types';
-import { parseScriptContent, ParsedLine } from '../utils/prompterUtils';
+import { parseScriptContent, ParsedLine, countLineScriptWords } from '../utils/prompterUtils';
 import { 
   Eye, 
   ArrowRight, 
@@ -18,7 +18,6 @@ import {
   ArrowLeftRight,
   VideoOff,
   X,
-  Square,
   Film,
   PictureInPicture2,
   Image as ImageIcon
@@ -243,17 +242,15 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
   // Voice-driven scroll: map recognized word index → line → reader-line position
   const lastVoiceScrollIdxRef = useRef(-1);
   useEffect(() => {
-    if (!speechTracking || !containerRef.current) return;
+    if (!speechTracking) {
+      lastVoiceScrollIdxRef.current = -1;
+      return;
+    }
+    if (!containerRef.current) return;
     if (voiceWordIndex === lastVoiceScrollIdxRef.current) return;
     lastVoiceScrollIdxRef.current = voiceWordIndex;
 
     const container = containerRef.current;
-    const countLineWords = (text: string) =>
-      text
-        .replace(/\[.*?\]/g, ' ')
-        .replace(/[.,/#!$%^&*;:{}=\-_`~()?"'¡¿…]/g, ' ')
-        .split(/\s+/)
-        .filter(Boolean).length;
 
     let wordsSeen = 0;
     let targetEl: HTMLElement | null = null;
@@ -261,7 +258,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
     for (let i = 0; i < parsedLines.length; i++) {
       const line = parsedLines[i];
       if (line.type === 'cue' || !line.cleanText?.trim()) continue;
-      const lineWords = countLineWords(line.cleanText);
+      const lineWords = countLineScriptWords(line.cleanText);
       if (lineWords === 0) continue;
       const lineEnd = wordsSeen + lineWords;
       if (voiceWordIndex >= wordsSeen && voiceWordIndex < lineEnd) {
@@ -901,39 +898,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
           }`}
         >
           
-          {/* Direct Record Video Button */}
-          {onToggleRecord && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                triggerHaptic(30);
-                onToggleRecord();
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md border text-xs font-mono font-bold shadow-editorial transition-all active:scale-95 ${
-                isRecording
-                  ? 'bg-red-600 hover:bg-red-700 text-white border-red-400 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.7)]'
-                  : 'bg-[#121212]/90 text-white border-[#E0DDD5]/40 hover:bg-red-950/40 hover:text-red-300'
-              }`}
-              title={isRecording ? 'Detener y guardar video' : 'Iniciar grabación de video'}
-            >
-              {isRecording ? (
-                <>
-                  <Square className="w-3.5 h-3.5 fill-current" />
-                  <span>{formatRecTime(recordingSeconds)}</span>
-                  <span className="text-[9px] uppercase tracking-wider bg-black/40 px-1 py-0.5 rounded-xs">
-                    DETENER
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-red-500" />
-                  <span>Grabar</span>
-                </>
-              )}
-            </button>
-          )}
-
-          {/* Saved Takes Modal Opener */}
+          {/* Saved Takes Modal Opener (grabación unida al botón Play) */}
           {takesCount > 0 && onOpenRecordingModal && (
             <button
               onClick={(e) => {

@@ -40,7 +40,7 @@ const DEFAULT_SETTINGS: PrompterSettings = {
   readerLineStyle: 'bar',
   readerLinePosition: 35,
   readerLineColor: '#00d1ff',
-  countdownSeconds: 3,
+  countdownSeconds: 5,
   cameraOverlay: false,
   cameraLayout: 'pip',
   cameraPosition: 'left',
@@ -144,6 +144,9 @@ export default function App() {
     enabled: settings.speechTracking,
     scriptContent: activeScript?.content || '',
     onMatchProgress: handleVoiceProgress,
+    onPermissionDenied: () => {
+      setSettings((prev) => ({ ...prev, speechTracking: false }));
+    },
   });
 
   // When enabling voice tracking, pause WPM auto-scroll so the mic drives movement
@@ -177,6 +180,18 @@ export default function App() {
     },
   });
 
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isRecordingRef = useRef(isRecording);
+  isRecordingRef.current = isRecording;
+
+  const clearCountdown = useCallback(() => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    setCountdownNumber(null);
+  }, []);
+
   // Playback timer ticker
   useEffect(() => {
     let timer: any;
@@ -188,49 +203,86 @@ export default function App() {
     return () => clearInterval(timer);
   }, [playbackStatus]);
 
-  // Handle Play/Pause with optional countdown
+  useEffect(() => {
+    return () => clearCountdown();
+  }, [clearCountdown]);
+
+  /** After countdown: start camera recording + scroll together. */
+  const beginPlayAndRecord = useCallback(async () => {
+    if (!settings.cameraOverlay && mode !== 'camera') {
+      setSettings((prev) => ({ ...prev, cameraOverlay: true }));
+    }
+    try {
+      // Con voz activa: grabar solo video para no bloquear el micrófono del ASR
+      await startRecording(undefined, { videoOnly: settings.speechTracking });
+    } catch (err) {
+      console.warn('No se pudo iniciar la grabación:', err);
+    }
+    setPlaybackStatus('playing');
+  }, [settings.cameraOverlay, settings.speechTracking, mode, startRecording]);
+
+  // One button: play scroll + record camera (with optional countdown from idle)
   const handleTogglePlay = useCallback(() => {
+    if (playbackStatus === 'countdown') {
+      clearCountdown();
+      setPlaybackStatus('idle');
+      return;
+    }
+
     if (playbackStatus === 'playing') {
       setPlaybackStatus('paused');
       AudioRehearsalEngine.stop();
       setIsAudioRehearsing(false);
-    } else {
-      if (settings.countdownSeconds > 0 && playbackStatus === 'idle') {
-        setPlaybackStatus('countdown');
-        let currentCount = settings.countdownSeconds;
-        setCountdownNumber(currentCount);
-
-        const countInterval = setInterval(() => {
-          currentCount -= 1;
-          if (currentCount > 0) {
-            setCountdownNumber(currentCount);
-          } else {
-            clearInterval(countInterval);
-            setCountdownNumber(null);
-            setPlaybackStatus('playing');
-          }
-        }, 1000);
-      } else {
-        setPlaybackStatus('playing');
+      if (isRecordingRef.current) {
+        stopRecording();
       }
+      return;
     }
-  }, [playbackStatus, settings.countdownSeconds]);
+
+    // Start from idle / paused / completed
+    if (settings.countdownSeconds > 0 && playbackStatus === 'idle') {
+      clearCountdown();
+      setPlaybackStatus('countdown');
+      let currentCount = settings.countdownSeconds;
+      setCountdownNumber(currentCount);
+
+      countdownIntervalRef.current = setInterval(() => {
+        currentCount -= 1;
+        if (currentCount > 0) {
+          setCountdownNumber(currentCount);
+        } else {
+          clearCountdown();
+          void beginPlayAndRecord();
+        }
+      }, 1000);
+    } else {
+      void beginPlayAndRecord();
+    }
+  }, [
+    playbackStatus,
+    settings.countdownSeconds,
+    clearCountdown,
+    beginPlayAndRecord,
+    stopRecording,
+  ]);
 
   // Restart to top
   const handleRestart = useCallback(() => {
+    clearCountdown();
+    if (isRecordingRef.current) {
+      stopRecording();
+    }
     setPlaybackStatus('idle');
     setElapsedSeconds(0);
-    setCountdownNumber(null);
     resetVoiceTracking();
     AudioRehearsalEngine.stop();
     setIsAudioRehearsing(false);
 
-    // Scroll to top
     const canvasScroller = document.querySelector('.no-scrollbar');
     if (canvasScroller) {
       canvasScroller.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, [resetVoiceTracking]);
+  }, [resetVoiceTracking, clearCountdown, stopRecording]);
 
   // Nudge forward / backward 5s
   const handleNudgeForward = useCallback(() => {
@@ -277,23 +329,10 @@ export default function App() {
     }
   }, []);
 
-  // Record / Stop Video Handler
-  const handleToggleRecord = useCallback(async () => {
-    if (isRecording) {
-      stopRecording();
-      setIsRecordingModalOpen(true);
-    } else {
-      // Automatically make camera visible
-      if (!settings.cameraOverlay && mode !== 'camera') {
-        setSettings((prev) => ({ ...prev, cameraOverlay: true }));
-      }
-      const started = await startRecording();
-      if (started && playbackStatus !== 'playing') {
-        // Start prompter scrolling for speaker
-        handleTogglePlay();
-      }
-    }
-  }, [isRecording, stopRecording, settings.cameraOverlay, mode, startRecording, playbackStatus, handleTogglePlay]);
+  // Record button = same as play (unified start). Kept for shortcuts / legacy callers.
+  const handleToggleRecord = useCallback(() => {
+    handleTogglePlay();
+  }, [handleTogglePlay]);
 
   // Update Settings Partial
   const handleUpdateSettings = useCallback((newSettings: Partial<PrompterSettings>) => {
@@ -507,7 +546,7 @@ export default function App() {
                   {countdownNumber}
                 </span>
                 <span className="text-xs sm:text-sm font-mono tracking-widest text-[#F9F7F2] uppercase">
-                  ¡PREPÁRATE PARA HABLAR!
+                  ¡PREPÁRATE! Texto + grabación
                 </span>
               </div>
             </div>
@@ -643,8 +682,8 @@ export default function App() {
         isVoiceActive={settings.speechTracking}
         onToggleVoice={() => setSettings((s) => ({ ...s, speechTracking: !s.speechTracking }))}
         isRecording={isRecording}
-        recordingSeconds={recordingSeconds}
-        onToggleRecord={handleToggleRecord}
+        playbackStatus={playbackStatus}
+        onTogglePlay={handleTogglePlay}
         takesCount={takesHistory.length}
         onOpenRecordingModal={() => setIsRecordingModalOpen(true)}
         onOpenLibrary={() => setIsLibraryOpen(true)}
