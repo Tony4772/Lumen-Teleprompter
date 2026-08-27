@@ -2,8 +2,8 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { RecordedTake } from '../types';
 import { setSharedCameraStream, isAppleTouchDevice } from '../utils/cameraStreamStore';
 import {
+  beginAvCaptureFromUserGesture,
   getReadyAvStream,
-  openCameraAndMic,
   pickRecorderMimeType,
 } from '../utils/recordingCapture';
 
@@ -117,7 +117,6 @@ export const useVideoRecorder = ({
   const recordedChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingStartTimeRef = useRef(0);
-  /** Stream AV abierto en el toque Iniciar — único permitido para grabar */
   const sessionStreamRef = useRef<MediaStream | null>(null);
   const onFinishedRef = useRef(onRecordingFinished);
   onFinishedRef.current = onRecordingFinished;
@@ -136,35 +135,42 @@ export const useVideoRecorder = ({
   }, []);
 
   /**
-   * OBLIGATORIO en el toque Iniciar (gesto).
-   * Abre cámara+mic juntos. Si falla, no hay grabación (ambos son requeridos).
+   * Recibe la Promise disparada SÍNCRONAMENTE en el onClick.
    */
-  const prepareMicForRecording = useCallback(async (): Promise<boolean> => {
+  const adoptAvPromise = useCallback(async (avPromise: Promise<MediaStream>): Promise<boolean> => {
     setRecorderError(null);
     try {
-      const stream = await openCameraAndMic();
+      const stream = await avPromise;
       sessionStreamRef.current = stream;
       setSharedCameraStream(stream, { stopPrevious: false });
       return true;
     } catch (err: any) {
-      console.error('openCameraAndMic failed:', err);
+      console.error('adoptAvPromise failed:', err?.name, err?.message, err);
       sessionStreamRef.current = null;
-      const msg =
-        err?.message === 'NO_AUDIO'
-          ? 'Necesitamos el micrófono. Toca Permitir e Iniciar.'
-          : err?.message === 'NO_VIDEO'
-            ? 'Necesitamos la cámara. Toca Permitir e Iniciar.'
-            : err?.name === 'NotAllowedError'
-              ? 'Activa cámara y micrófono y toca Permitir al iniciar.'
-              : 'No se abrió cámara y micrófono. Toca Iniciar otra vez.';
-      setRecorderError(msg);
+
+      // Si ya hay un stream usable (carrera), úsalo
+      const ready = getReadyAvStream();
+      if (ready) {
+        sessionStreamRef.current = ready;
+        return true;
+      }
+
+      setRecorderError(
+        err?.name === 'NotAllowedError'
+          ? 'El navegador bloqueó cámara/mic. En el candado de la URL elige Permitir y vuelve a Iniciar.'
+          : err?.name === 'NotReadableError'
+            ? 'La cámara está ocupada por otra app. Ciérrala e Inicia otra vez.'
+            : 'No se pudo abrir cámara y micrófono. Toca Iniciar otra vez.'
+      );
       return false;
     }
   }, []);
 
-  /**
-   * Solo MediaRecorder sobre el stream ya abierto. NUNCA pide getUserMedia otra vez.
-   */
+  /** Compat: dispara captura (mejor usar beginAvCaptureFromUserGesture en el click). */
+  const prepareMicForRecording = useCallback(async (): Promise<boolean> => {
+    return adoptAvPromise(beginAvCaptureFromUserGesture());
+  }, [adoptAvPromise]);
+
   const startRecording = useCallback(
     async (_existing?: MediaStream | null, _options?: { videoOnly?: boolean }) => {
       setRecorderError(null);
@@ -203,12 +209,6 @@ export const useVideoRecorder = ({
           recorder = new MediaRecorder(stream);
         }
         mediaRecorderRef.current = recorder;
-
-        console.info('[lumen-recorder]', {
-          mime: mimeType || recorder.mimeType,
-          audio: stream.getAudioTracks().length,
-          video: stream.getVideoTracks().length,
-        });
 
         recorder.ondataavailable = (event) => {
           if (event.data && event.data.size > 0) {
@@ -371,6 +371,7 @@ export const useVideoRecorder = ({
     takesHistory,
     recorderError,
     clearRecorderError,
+    adoptAvPromise,
     prepareMicForRecording,
     startRecording,
     stopRecording,

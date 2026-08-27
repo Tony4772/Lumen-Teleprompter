@@ -23,6 +23,7 @@ import { useSpeechFollower } from './hooks/useSpeechFollower';
 import { useVideoRecorder } from './hooks/useVideoRecorder';
 import { countWords, estimateDurationSeconds } from './utils/prompterUtils';
 import { AudioRehearsalEngine } from './utils/speechSynthesis';
+import { beginAvCaptureFromUserGesture } from './utils/recordingCapture';
 import { Play, Pause } from 'lucide-react';
 
 const STORAGE_KEY_SCRIPTS = 'lumen_teleprompter_scripts_v1';
@@ -204,6 +205,7 @@ export default function App() {
     takesHistory,
     recorderError,
     clearRecorderError,
+    adoptAvPromise,
     prepareMicForRecording,
     startRecording,
     stopRecording,
@@ -271,10 +273,12 @@ export default function App() {
       return;
     }
 
-    const runStartFlow = async () => {
-      // En TODOS los dispositivos: cámara+mic en el mismo toque (gesto).
-      // Sin esto, tras la cuenta regresiva el navegador bloquea permisos.
-      const ready = await prepareMicForRecording();
+    // CRÍTICO: disparar getUserMedia en el MISMO tick del toque (gesto).
+    // Si se hace dentro de un async después de awaits, Safari/Chrome lo bloquean.
+    const avPromise = beginAvCaptureFromUserGesture();
+
+    void (async () => {
+      const ready = await adoptAvPromise(avPromise);
       if (!ready) {
         setPlaybackStatus('idle');
         return;
@@ -304,14 +308,12 @@ export default function App() {
       } else {
         await beginPlayAndRecord();
       }
-    };
-
-    void runStartFlow();
+    })();
   }, [
     playbackStatus,
     settings.countdownSeconds,
     clearCountdown,
-    prepareMicForRecording,
+    adoptAvPromise,
     beginPlayAndRecord,
     stopRecording,
   ]);

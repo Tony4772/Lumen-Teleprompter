@@ -1,6 +1,5 @@
 /**
- * Un solo camino de captura: getUserMedia({ video, audio }) en el gesto del usuario.
- * Ese mismo MediaStream se usa para preview y MediaRecorder.
+ * Captura AV: un getUserMedia({video,audio}) iniciado en el gesto del toque.
  */
 import {
   getSharedCameraStream,
@@ -8,13 +7,6 @@ import {
   releaseSharedCameraStreamSync,
   isAppleTouchDevice,
 } from './cameraStreamStore';
-
-export function isAppleOrMobile(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  if (isAppleTouchDevice()) return true;
-  if (/Android/i.test(navigator.userAgent)) return true;
-  return false;
-}
 
 export function pickRecorderMimeType(): string {
   if (typeof MediaRecorder === 'undefined') return '';
@@ -49,40 +41,56 @@ export function getReadyAvStream(): MediaStream | null {
   return null;
 }
 
+const AV_CONSTRAINTS: MediaStreamConstraints[] = [
+  { video: true, audio: true },
+  { video: { facingMode: 'user' }, audio: true },
+  { video: { facingMode: { ideal: 'user' } }, audio: { echoCancellation: true } },
+];
+
 /**
- * Abre cámara + mic juntos. Llamar SOLO dentro del toque Iniciar.
- * Si ya hay un stream AV vivo, lo reutiliza.
+ * CRÍTICO: llamar esto de forma SÍNCRONA en el onClick/onTouchEnd (sin await antes).
+ * Devuelve la Promise de getUserMedia ya disparada bajo el gesto del usuario.
  */
-export async function openCameraAndMic(): Promise<MediaStream> {
+export function beginAvCaptureFromUserGesture(): Promise<MediaStream> {
   const existing = getReadyAvStream();
   if (existing) {
     existing.getTracks().forEach((t) => {
       t.enabled = true;
     });
-    return existing;
+    return Promise.resolve(existing);
   }
 
-  // Liberar preview video-only que bloquearía el mic en el mismo dispositivo
+  // Soltar preview video-only YA (sync), luego disparar getUserMedia en el mismo tick
   releaseSharedCameraStreamSync();
 
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: 'user' },
-    audio: true,
-  });
-
-  stream.getTracks().forEach((t) => {
-    t.enabled = true;
-  });
-
-  if (!isLive(stream, 'video')) {
-    stream.getTracks().forEach((t) => t.stop());
-    throw new Error('NO_VIDEO');
-  }
-  if (!isLive(stream, 'audio')) {
-    stream.getTracks().forEach((t) => t.stop());
-    throw new Error('NO_AUDIO');
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return Promise.reject(new Error('NO_MEDIA_DEVICES'));
   }
 
-  setSharedCameraStream(stream, { stopPrevious: true });
-  return stream;
+  // Primera petición en el mismo turno del gesto
+  const first = navigator.mediaDevices.getUserMedia(AV_CONSTRAINTS[0]);
+
+  return first
+    .catch(() => navigator.mediaDevices.getUserMedia(AV_CONSTRAINTS[1]))
+    .catch(() => navigator.mediaDevices.getUserMedia(AV_CONSTRAINTS[2]))
+    .then((stream) => {
+      stream.getTracks().forEach((t) => {
+        t.enabled = true;
+      });
+      if (!isLive(stream, 'video')) {
+        stream.getTracks().forEach((t) => t.stop());
+        throw new Error('NO_VIDEO');
+      }
+      if (!isLive(stream, 'audio')) {
+        stream.getTracks().forEach((t) => t.stop());
+        throw new Error('NO_AUDIO');
+      }
+      setSharedCameraStream(stream, { stopPrevious: true });
+      return stream;
+    });
+}
+
+/** @deprecated usar beginAvCaptureFromUserGesture */
+export async function openCameraAndMic(): Promise<MediaStream> {
+  return beginAvCaptureFromUserGesture();
 }
