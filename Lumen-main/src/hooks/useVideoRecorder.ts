@@ -10,7 +10,6 @@ import {
   resumeRecordingAudioContext,
   type RecorderSurface,
 } from '../utils/recordingCapture';
-import fixWebmDuration from 'fix-webm-duration';
 
 export const getSupportedVideoMimeType = (): string => pickRecorderMimeType();
 
@@ -263,7 +262,7 @@ export const useVideoRecorder = ({
           console.error('MediaRecorder error:', e);
         };
 
-        const finalizeTake = async () => {
+        const finalizeTake = () => {
           try {
             recorderSurfaceRef.current?.stop();
           } catch {
@@ -280,23 +279,10 @@ export const useVideoRecorder = ({
           const rawMime = recorder.mimeType || mimeType || chunks[0]?.type || 'video/mp4';
           const finalMime = (rawMime.split(';')[0] || 'video/mp4').trim() || 'video/mp4';
           const safeMime = finalMime.startsWith('video/') ? finalMime : 'video/mp4';
-          let blob = new Blob(chunks, { type: safeMime });
+          const blob = new Blob(chunks, { type: safeMime });
           if (blob.size < 50) {
             setIsRecording(false);
             return;
-          }
-
-          // Edge/Chrome: WebM de MediaRecorder sin duración → preview negro
-          if (safeMime.includes('webm')) {
-            try {
-              const durationMs = Math.max(
-                1000,
-                Date.now() - recordingStartTimeRef.current
-              );
-              blob = await fixWebmDuration(blob, durationMs);
-            } catch (err) {
-              console.warn('[lumen] fix-webm-duration failed:', err);
-            }
           }
 
           const url = URL.createObjectURL(blob);
@@ -304,13 +290,6 @@ export const useVideoRecorder = ({
             1,
             Math.round((Date.now() - recordingStartTimeRef.current) / 1000)
           );
-
-          console.info('[lumen] take ready', {
-            mime: safeMime,
-            bytes: blob.size,
-            audioTracksAtStart: stream.getAudioTracks().length,
-            videoTracksAtStart: stream.getVideoTracks().length,
-          });
 
           const newTake: RecordedTake = {
             id: `take_${Date.now()}`,
@@ -336,7 +315,7 @@ export const useVideoRecorder = ({
         recorder.onstop = () => {
           const checkAndFinalize = (attempts = 0) => {
             if (recordedChunksRef.current.length > 0 || attempts >= 8) {
-              void finalizeTake();
+              finalizeTake();
             } else {
               window.setTimeout(() => checkAndFinalize(attempts + 1), 75);
             }
