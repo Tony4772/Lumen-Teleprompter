@@ -1,9 +1,18 @@
 export function getCulqiKeys() {
-  // Acceso dinámico para que Vercel no inyecte strings vacíos en build time.
-  return {
-    publicKey: (process.env['CULQI_PUBLIC_KEY'] || '').trim(),
-    secretKey: (process.env['CULQI_SECRET_KEY'] || '').trim(),
-  };
+  const publicKey = (
+    process.env['CULQI_PUBLIC_KEY'] ||
+    process.env['CULQI_PUBLIC'] ||
+    process.env['VITE_CULQI_PUBLIC_KEY'] ||
+    process.env['NEXT_PUBLIC_CULQI_PUBLIC_KEY'] ||
+    ''
+  ).trim();
+  const secretKey = (
+    process.env['CULQI_SECRET_KEY'] ||
+    process.env['CULQI_SECRET'] ||
+    process.env['CULQI_PRIVATE_KEY'] ||
+    ''
+  ).trim();
+  return { publicKey, secretKey };
 }
 
 async function parseCulqiResponse(response) {
