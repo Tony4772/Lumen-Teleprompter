@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { PrompterSettings, PlaybackStatus, CameraLayout } from '../types';
 import { parseScriptContent, ParsedLine, countLineScriptWords } from '../utils/prompterUtils';
 import { setSharedCameraStream, getSharedCameraStream, CAMERA_STREAM_EVENT } from '../utils/cameraStreamStore';
+import { isMobileDevice } from '../utils/recordingCapture';
 import { 
   Eye, 
   ArrowRight, 
@@ -170,7 +171,10 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
             audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
           });
         } catch {
-          // Fallback: si el micrófono no está disponible o fue denegado, abrir solo cámara
+          // Escritorio: fallback video-only. Móvil: nunca video-only en el store (tomas mudas).
+          if (isMobileDevice()) {
+            throw new Error('NO_AV');
+          }
           stream = await navigator.mediaDevices.getUserMedia({
             video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
             audio: false,
@@ -179,6 +183,22 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
 
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+
+        // No pisar un AV ya abierto por Iniciar (carrera con getUserMedia del preview)
+        const current = getSharedCameraStream();
+        if (
+          current &&
+          current !== stream &&
+          current.getVideoTracks().some((t) => t.readyState === 'live') &&
+          current.getAudioTracks().some((t) => t.readyState === 'live')
+        ) {
+          stream.getTracks().forEach((t) => t.stop());
+          stream = current;
+          ownsStream = false;
+          attachToVideo(current);
+          setCameraError(null);
           return;
         }
 
