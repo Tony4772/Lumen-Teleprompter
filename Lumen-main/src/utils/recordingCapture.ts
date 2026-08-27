@@ -62,8 +62,8 @@ export function getReadyAvStream(): MediaStream | null {
 const OPTIMAL_AV_CONSTRAINTS: MediaStreamConstraints = {
   video: {
     facingMode: 'user',
-    width: { ideal: 1280, max: 1920 },
-    height: { ideal: 720, max: 1080 },
+    width: { ideal: 1280 },
+    height: { ideal: 720 },
   },
   audio: {
     echoCancellation: true,
@@ -82,50 +82,22 @@ const GENERIC_AV_CONSTRAINTS: MediaStreamConstraints = {
   audio: true,
 };
 
-/**
- * Fallback para móviles no-Apple donde solicitar audio + video simultáneamente falla
- * debido a bloqueos de hardware simultáneos.
- */
-async function captureSplitStreams(): Promise<MediaStream> {
-  if (isAppleTouchDevice()) {
-    // Safari iOS no permite MediaRecorder con streams sintéticos de distintas llamadas
-    throw new Error('SPLIT_STREAM_UNSUPPORTED_ON_IOS');
+function requestFullAvStream(): Promise<MediaStream> {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return Promise.reject(new Error('NO_MEDIA_DEVICES'));
   }
 
-  const videoStream = await navigator.mediaDevices
-    .getUserMedia({
-      video: { facingMode: 'user', width: { ideal: 1280 } },
-    })
-    .catch(() =>
-      navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user' },
-      })
-    )
-    .catch(() =>
-      navigator.mediaDevices.getUserMedia({
-        video: true,
-      })
-    );
-
-  let audioStream: MediaStream;
-  try {
-    audioStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
+  return navigator.mediaDevices
+    .getUserMedia(OPTIMAL_AV_CONSTRAINTS)
+    .catch(() => navigator.mediaDevices.getUserMedia(STANDARD_AV_CONSTRAINTS))
+    .catch(() => navigator.mediaDevices.getUserMedia(GENERIC_AV_CONSTRAINTS))
+    .then((stream) => {
+      stream.getTracks().forEach((t) => {
+        t.enabled = true;
+      });
+      setSharedCameraStream(stream, { stopPrevious: true });
+      return stream;
     });
-  } catch {
-    audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  }
-
-  const combined = new MediaStream([
-    ...videoStream.getVideoTracks(),
-    ...audioStream.getAudioTracks(),
-  ]);
-
-  return combined;
 }
 
 /**
@@ -141,50 +113,37 @@ export function beginAvCaptureFromUserGesture(): Promise<MediaStream> {
     return Promise.resolve(existing);
   }
 
-  // Soltar preview video-only de inmediato de forma síncrona
-  releaseSharedCameraStreamSync();
-
   if (!navigator.mediaDevices?.getUserMedia) {
     return Promise.reject(new Error('NO_MEDIA_DEVICES'));
   }
 
-  // Primera petición en el mismo turno síncrono del gesto
-  const first = navigator.mediaDevices.getUserMedia(OPTIMAL_AV_CONSTRAINTS);
-
-  return first
-    .catch(() => navigator.mediaDevices.getUserMedia(STANDARD_AV_CONSTRAINTS))
-    .catch(() => navigator.mediaDevices.getUserMedia(GENERIC_AV_CONSTRAINTS))
-    .catch(() => captureSplitStreams())
-    .then((stream) => {
-      stream.getTracks().forEach((t) => {
-        t.enabled = true;
+  // Si ya tenemos preview de cámara activo (video live), solo pedimos micrófono
+  // y lo agregamos al stream existente sin reiniciar el sensor de la cámara en hardware.
+  const currentPreview = getSharedCameraStream();
+  if (currentPreview && isLive(currentPreview, 'video') && !isLive(currentPreview, 'audio')) {
+    const audioPromise = navigator.mediaDevices
+      .getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      })
+      .catch(() => navigator.mediaDevices.getUserMedia({ audio: true }))
+      .then((audioStream) => {
+        const audioTracks = audioStream.getAudioTracks();
+        audioTracks.forEach((t) => {
+          t.enabled = true;
+          currentPreview.addTrack(t);
+        });
+        setSharedCameraStream(currentPreview, { stopPrevious: false });
+        return currentPreview;
+      })
+      .catch(() => {
+        // Fallback: si pedir solo audio falla, intentar pedir ambos
+        return requestFullAvStream();
       });
 
-      if (!isLive(stream, 'video')) {
-        stream.getTracks().forEach((t) => {
-          try {
-            t.stop();
-          } catch {
-            // ignore
-          }
-        });
-        throw new Error('NO_VIDEO');
-      }
+    return audioPromise;
+  }
 
-      if (!isLive(stream, 'audio')) {
-        stream.getTracks().forEach((t) => {
-          try {
-            t.stop();
-          } catch {
-            // ignore
-          }
-        });
-        throw new Error('NO_AUDIO');
-      }
-
-      setSharedCameraStream(stream, { stopPrevious: true });
-      return stream;
-    });
+  return requestFullAvStream();
 }
 
 /** @deprecated usar beginAvCaptureFromUserGesture */

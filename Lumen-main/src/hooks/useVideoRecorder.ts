@@ -163,11 +163,15 @@ export const useVideoRecorder = ({
       }
 
       setRecorderError(
-        err?.name === 'NotAllowedError'
-          ? 'El navegador bloqueó cámara/mic. En el candado de la URL elige Permitir y vuelve a Iniciar.'
-          : err?.name === 'NotReadableError'
-            ? 'El micrófono o cámara están ocupados por otra app. Ciérrala e Inicia otra vez.'
-            : 'No se pudo abrir cámara y micrófono. Toca Iniciar otra vez.'
+        err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError'
+          ? 'Permiso bloqueado. Toca el candado junto a la URL, permite Cámara y Micrófono y toca Iniciar.'
+          : err?.name === 'NotReadableError' || err?.name === 'TrackStartError'
+            ? 'La cámara o el micrófono están en uso por otra app. Ciérrala y vuelve a Iniciar.'
+            : err?.name === 'OverconstrainedError'
+              ? 'Ajustando cámara... Toca Iniciar otra vez.'
+              : err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError'
+                ? 'No se detectó cámara o micrófono en este dispositivo.'
+                : 'No se pudo abrir cámara y micrófono. Toca Iniciar otra vez.'
       );
       return false;
     }
