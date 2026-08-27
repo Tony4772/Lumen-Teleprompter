@@ -353,230 +353,173 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
   const isMirroredY = settings.mirrorY;
 
   // Webcam Sub-Component View with framing guides and quick controls
-  const renderWebcamSurface = (isFloating = false) => (
-    <div
-      className={`relative overflow-hidden bg-[#0a0a0a] flex items-center justify-center ${
-        isFloating
-          ? 'w-full h-full rounded-xs shadow-2xl border-2 border-white/40 touch-none'
-          : 'w-full h-full'
-      }`}
-      onPointerDown={(e) => {
-        if (!isFloating) return;
-        e.stopPropagation();
-        isDraggingRef.current = true;
-        const rect = e.currentTarget.getBoundingClientRect();
-        dragOffsetRef.current = {
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top,
-        };
-        e.currentTarget.setPointerCapture(e.pointerId);
-      }}
-      onPointerMove={(e) => {
-        if (!isFloating || !isDraggingRef.current || !mainContainerRef.current) return;
-        e.stopPropagation();
+  const renderWebcamSurface = (layout: CameraLayout) => {
+    const isFloating = layout === 'pip';
+    const isBackground = layout === 'background';
 
-        const canvasRect = mainContainerRef.current.getBoundingClientRect();
-
-        setPipPosition({
-          x: e.clientX - canvasRect.left - dragOffsetRef.current.x,
-          y: e.clientY - canvasRect.top - dragOffsetRef.current.y,
-        });
-      }}
-      onPointerUp={(e) => {
-        if (!isFloating) return;
-        e.stopPropagation();
-        isDraggingRef.current = false;
-        e.currentTarget.releasePointerCapture(e.pointerId);
-      }}
-    >
-      {/* Video element */}
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        className={`w-full h-full object-cover filter contrast-110 brightness-95 ${
-          settings.cameraMirror !== false ? 'transform -scale-x-100' : ''
+    return (
+      <div
+        className={`relative overflow-hidden bg-[#0a0a0a] flex items-center justify-center ${
+          isFloating
+            ? 'w-full h-full rounded-xs shadow-2xl border-2 border-white/40 touch-none'
+            : 'w-full h-full'
         }`}
-      />
+        onPointerDown={(e) => {
+          if (!isFloating) return;
+          e.stopPropagation();
+          isDraggingRef.current = true;
+          const rect = e.currentTarget.getBoundingClientRect();
+          dragOffsetRef.current = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+          };
+          e.currentTarget.setPointerCapture(e.pointerId);
+        }}
+        onPointerMove={(e) => {
+          if (!isFloating || !isDraggingRef.current || !mainContainerRef.current) return;
+          e.stopPropagation();
+          const canvasRect = mainContainerRef.current.getBoundingClientRect();
+          setPipPosition({
+            x: e.clientX - canvasRect.left - dragOffsetRef.current.x,
+            y: e.clientY - canvasRect.top - dragOffsetRef.current.y,
+          });
+        }}
+        onPointerUp={(e) => {
+          if (!isFloating) return;
+          e.stopPropagation();
+          isDraggingRef.current = false;
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        }}
+      >
+        {/* Video element */}
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className={`w-full h-full object-cover filter contrast-110 brightness-95 ${
+            settings.cameraMirror !== false ? 'transform -scale-x-100' : ''
+          }`}
+        />
 
-      {/* Camera Framing Guides Overlay (Rule of thirds & Eye-level Gaze) */}
-      {settings.cameraFramingGuides && (
-        <div className="absolute inset-0 pointer-events-none z-10 flex flex-col justify-between">
-          {/* Rule of Thirds Vertical Lines */}
-          <div className="absolute inset-0 flex justify-between px-[33.3%] pointer-events-none">
-            <div className="w-[1px] h-full bg-white/20 border-r border-white/10" />
-            <div className="w-[1px] h-full bg-white/20 border-r border-white/10" />
+        {/* Background mode dimming overlay */}
+        {isBackground && <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" />}
+
+        {/* Camera Framing Guides Overlay */}
+        {settings.cameraFramingGuides && (
+          <div className="absolute inset-0 pointer-events-none z-10 flex flex-col justify-between">
+            <div className="absolute inset-0 flex justify-between px-[33.3%] pointer-events-none">
+              <div className="w-[1px] h-full bg-white/20 border-r border-white/10" />
+              <div className="w-[1px] h-full bg-white/20 border-r border-white/10" />
+            </div>
+            <div className="absolute top-[32%] left-0 right-0 border-t border-dashed border-amber-400/60 z-10 flex items-center justify-between px-3">
+              <span className="text-[8px] font-mono uppercase tracking-widest text-amber-300 bg-black/40 backdrop-blur-xs px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                <Eye className="w-2.5 h-2.5" />
+                <span>Nivel Ojos</span>
+              </span>
+            </div>
+            <div className="absolute top-[66.6%] left-0 right-0 border-t border-white/20" />
+          </div>
+        )}
+
+        {/* Floating Camera Header Bar (Always present if layout is not background, or on hover if background) */}
+        <div className="absolute top-2 left-2 right-2 z-20 flex items-center justify-between pointer-events-auto">
+          {/* Status Label */}
+          <div className="flex items-center gap-1.5 bg-black/70 backdrop-blur-md border border-white/20 px-2 py-0.5 rounded-full text-white text-[9px] font-mono font-bold tracking-wider">
+            {isRecording ? (
+              <span className="flex items-center gap-1 text-red-400"><span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" /> GRABANDO</span>
+            ) : (
+              <span className="opacity-70">LISTO</span>
+            )}
           </div>
 
-          {/* Eye-Level Target Line (Upper Third) */}
-          <div className="absolute top-[32%] left-0 right-0 border-t border-dashed border-amber-400/60 z-10 flex items-center justify-between px-3">
-            <span className="text-[9px] font-mono uppercase tracking-widest text-amber-300 bg-black/60 backdrop-blur-xs px-2 py-0.5 rounded-full flex items-center gap-1">
-              <Eye className="w-2.5 h-2.5 text-amber-400" />
-              <span>Nivel de Ojos (Contacto Visual)</span>
-            </span>
-            <div className="w-2 h-2 rounded-full bg-amber-400 animate-ping opacity-75" />
-          </div>
-
-          {/* Lower Third Horizontal Line */}
-          <div className="absolute top-[66.6%] left-0 right-0 border-t border-white/20" />
-        </div>
-      )}
-
-      {/* Floating Camera Header Bar */}
-      <div className="absolute top-2.5 left-2.5 right-2.5 z-20 flex items-center justify-between pointer-events-auto">
-        {/* Live / REC Indicator */}
-        <div className="flex items-center gap-2">
-          {isRecording ? (
-            <div className="flex items-center gap-1.5 bg-red-600 border border-red-400 px-2.5 py-1 rounded-full text-white text-[10px] font-mono font-bold tracking-wider animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.7)]">
-              <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-              <span>REC {formatRecTime(recordingSeconds)}</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5 bg-black/75 backdrop-blur-md border border-white/20 px-2.5 py-1 rounded-full text-white text-[10px] font-mono uppercase tracking-widest">
-              <span className="w-2 h-2 rounded-full bg-red-500" />
-              <span>WEBCAM</span>
-            </div>
-          )}
-
-          {/* Quick Record/Stop Button directly on camera */}
-          {onToggleRecord && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                triggerHaptic(30);
-                onToggleRecord();
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider transition-all shadow-md active:scale-95 ${
-                isRecording
-                  ? 'bg-white text-red-600 hover:bg-red-50 border border-white'
-                  : 'bg-red-600 hover:bg-red-700 text-white border border-red-500'
-              }`}
-              title={isRecording ? 'Detener y guardar video' : 'Iniciar grabación'}
-            >
-              {isRecording ? (
-                <>
-                  <Square className="w-2.5 h-2.5 fill-current text-red-600" />
-                  <span>Detener Grabación</span>
-                </>
-              ) : (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-white" />
-                  <span>Grabar</span>
-                </>
+          {/* New Clearly Labeled Control Group */}
+          {onUpdateSettings && (
+            <div className="flex items-center gap-1 bg-black/80 backdrop-blur-xl border border-white/30 p-1 rounded-sm text-white shadow-2xl">
+              {/* Swap Side (Only in split mode) */}
+              {layout === 'side-by-side' && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    triggerHaptic(10);
+                    onUpdateSettings({ cameraPosition: settings.cameraPosition === 'left' ? 'right' : 'left' });
+                  }}
+                  className="flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xs hover:bg-white/20 transition-colors"
+                  title="Mover al otro lado"
+                >
+                  <ArrowLeftRight className="w-3.5 h-3.5" />
+                  <span className="text-[7px] uppercase font-bold tracking-tighter">Lado</span>
+                </button>
               )}
-            </button>
-          )}
-        </div>
 
-        {/* Quick Camera Action Controls */}
-        {onUpdateSettings && (
-          <div className="flex items-center gap-1 bg-black/75 backdrop-blur-md border border-white/20 p-1 rounded-full text-white">
-            {/* Swap Side (Left <-> Right) */}
-            {settings.cameraLayout === 'side-by-side' && (
+              {/* Toggle Guides */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   triggerHaptic(10);
-                  onUpdateSettings({
-                    cameraPosition: settings.cameraPosition === 'left' ? 'right' : 'left'
-                  });
+                  onUpdateSettings({ cameraFramingGuides: !settings.cameraFramingGuides });
                 }}
-                className="p-1 rounded-full hover:bg-white/20 text-white transition-colors"
-                title="Cambiar lado de la cámara (Izquierda ↔ Derecha)"
+                className={`flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xs transition-colors ${settings.cameraFramingGuides ? 'bg-amber-500 text-black' : 'hover:bg-white/20'}`}
               >
-                <ArrowLeftRight className="w-3.5 h-3.5" />
+                <Grid className="w-3.5 h-3.5" />
+                <span className="text-[7px] uppercase font-bold tracking-tighter">Guías</span>
               </button>
-            )}
 
-            {/* Toggle Framing Guides */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                triggerHaptic(10);
-                onUpdateSettings({
-                  cameraFramingGuides: !settings.cameraFramingGuides
-                });
-              }}
-              className={`p-1 rounded-full transition-colors ${
-                settings.cameraFramingGuides ? 'bg-amber-400 text-black' : 'hover:bg-white/20 text-white'
-              }`}
-              title="Alternar guías de encuadre y nivel de ojos"
-            >
-              <Grid className="w-3.5 h-3.5" />
-            </button>
+              {/* Toggle Mirror */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  triggerHaptic(10);
+                  onUpdateSettings({ cameraMirror: !(settings.cameraMirror !== false) });
+                }}
+                className={`flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xs transition-colors ${settings.cameraMirror !== false ? 'bg-white/30' : 'hover:bg-white/20'}`}
+              >
+                <FlipHorizontal className="w-3.5 h-3.5" />
+                <span className="text-[7px] uppercase font-bold tracking-tighter">Espejo</span>
+              </button>
 
-            {/* Toggle Mirror */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                triggerHaptic(10);
-                onUpdateSettings({
-                  cameraMirror: !(settings.cameraMirror !== false)
-                });
-              }}
-              className={`p-1 rounded-full transition-colors ${
-                settings.cameraMirror !== false ? 'bg-white/20 text-white' : 'hover:bg-white/20 text-white/60'
-              }`}
-              title="Alternar efecto espejo en cámara"
-            >
-              <FlipHorizontal className="w-3.5 h-3.5" />
-            </button>
+              {/* Cycle Layout */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  triggerHaptic(10);
+                  const layouts: CameraLayout[] = ['side-by-side', 'pip', 'background'];
+                  const currentIdx = layouts.indexOf(settings.cameraLayout || 'side-by-side');
+                  const nextLayout = layouts[(currentIdx + 1) % layouts.length];
+                  onUpdateSettings({ cameraLayout: nextLayout });
+                }}
+                className="flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xs hover:bg-white/20 transition-colors"
+              >
+                <Columns className="w-3.5 h-3.5" />
+                <span className="text-[7px] uppercase font-bold tracking-tighter">Diseño</span>
+              </button>
 
-            {/* Layout Mode Cycle */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                triggerHaptic(10);
-                const layouts: CameraLayout[] = ['side-by-side', 'pip', 'background'];
-                const currentIdx = layouts.indexOf(settings.cameraLayout || 'side-by-side');
-                const nextLayout = layouts[(currentIdx + 1) % layouts.length];
-                onUpdateSettings({ cameraLayout: nextLayout });
-              }}
-              className={`p-1 rounded-full transition-colors ${
-                settings.cameraLayout !== 'side-by-side' ? 'bg-amber-400 text-black' : 'hover:bg-white/20 text-white'
-              }`}
-              title={`Cambiar diseño: ${settings.cameraLayout}. Clic para alternar entre Dividido, Flotante o Fondo.`}
-            >
-              <Columns className="w-3.5 h-3.5" />
-            </button>
+              {/* Close Camera */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  triggerHaptic(15);
+                  onUpdateSettings({ cameraOverlay: false });
+                  if (onSetMode) onSetMode('fullscreen');
+                }}
+                className="flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xs bg-red-600/80 hover:bg-red-600 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span className="text-[7px] uppercase font-bold tracking-tighter">Cerrar</span>
+              </button>
+            </div>
+          )}
+        </div>
 
-            {/* Turn off camera */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                triggerHaptic(15);
-                onUpdateSettings({ cameraOverlay: false });
-                if (onSetMode) onSetMode('fullscreen');
-              }}
-              className="p-1 rounded-full hover:bg-red-500/30 text-white hover:text-red-400 transition-colors"
-              title="Cerrar cámara y volver a pantalla completa"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
+        {cameraError && (
+          <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-4 text-center text-white z-30">
+            <VideoOff className="w-8 h-8 text-amber-400 mb-2" />
+            <p className="text-[10px] font-mono text-[#AAA]">{cameraError}</p>
           </div>
         )}
       </div>
-
-      {/* Bottom Info Pill - More descriptive */}
-      <div className="absolute bottom-2.5 left-2.5 right-2.5 z-20 flex justify-center pointer-events-none">
-        <span className="text-[10px] font-mono font-bold text-white bg-black/80 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 shadow-lg">
-          {settings.cameraLayout === 'side-by-side' 
-            ? 'VISTA DIVIDIDA'
-            : settings.cameraLayout === 'pip'
-            ? 'VENTANA FLOTANTE (ARRASTRABLE)'
-            : 'CÁMARA DE FONDO'}
-        </span>
-      </div>
-
-      {cameraError && (
-        <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-4 text-center text-white z-30">
-          <VideoOff className="w-8 h-8 text-amber-400 mb-2" />
-          <p className="text-xs font-mono text-[#AAA]">{cameraError}</p>
-        </div>
-      )}
-    </div>
-  );
+    );
+  };
 
   // Main Scrolling Prompter Text Surface
   const renderPrompterTextSurface = () => (
@@ -683,27 +626,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
           className="absolute inset-0 pointer-events-none z-0 overflow-hidden flex items-center justify-center"
           style={{ opacity: settings.cameraOpacity }}
         >
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className={`w-full h-full object-cover filter contrast-125 brightness-90 ${
-              settings.cameraMirror !== false ? 'transform -scale-x-100' : ''
-            }`}
-          />
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" />
-
-          {/* Framing Guides for Background mode too */}
-          {settings.cameraFramingGuides && (
-            <div className="absolute inset-0 pointer-events-none z-10 flex flex-col justify-between">
-              <div className="absolute inset-0 flex justify-between px-[33.3%] pointer-events-none">
-                <div className="w-[1px] h-full bg-white/10 border-r border-white/5" />
-                <div className="w-[1px] h-full bg-white/10 border-r border-white/5" />
-              </div>
-              <div className="absolute top-[32%] left-0 right-0 border-t border-dashed border-amber-400/40 z-10" />
-            </div>
-          )}
+          {renderWebcamSurface('background')}
         </div>
       )}
 
@@ -771,7 +694,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
           {settings.cameraPosition === 'left' ? (
             <>
               <div className="w-full md:w-1/2 h-[35%] md:h-full border-b md:border-b-0 md:border-r border-white/20 relative shrink-0">
-                {renderWebcamSurface(false)}
+                {renderWebcamSurface('side-by-side')}
               </div>
               <div className="w-full md:w-1/2 h-[65%] md:h-full relative overflow-hidden">
                 {renderPrompterTextSurface()}
@@ -784,7 +707,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
                 {renderPrompterTextSurface()}
               </div>
               <div className="w-full md:w-1/2 h-[35%] md:h-full border-t md:border-t-0 md:border-l border-white/20 relative shrink-0 order-1 md:order-2">
-                {renderWebcamSurface(false)}
+                {renderWebcamSurface('side-by-side')}
               </div>
             </>
           )}
@@ -806,7 +729,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
             position: 'absolute'
           }}
         >
-          {renderWebcamSurface(true)}
+          {renderWebcamSurface('pip')}
         </div>
       )}
 
