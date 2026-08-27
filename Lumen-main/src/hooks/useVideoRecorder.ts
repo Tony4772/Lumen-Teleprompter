@@ -24,27 +24,126 @@ export const getSupportedVideoMimeType = (): string => {
   return '';
 };
 
-export const downloadRecordedVideo = (blob: Blob, customFilename?: string) => {
-  const isMp4 = blob.type.includes('mp4');
-  const ext = isMp4 ? 'mp4' : 'webm';
-  const defaultName = `grabacion-teleprompter-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.${ext}`;
-  const filename = customFilename
-    ? customFilename.endsWith(`.${ext}`)
-      ? customFilename
-      : `${customFilename}.${ext}`
-    : defaultName;
+function isAppleTouchDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return (
+    /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  );
+}
 
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.style.display = 'none';
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => {
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, 1200);
+function buildVideoFile(blob: Blob, customFilename?: string): File {
+  const rawType = (blob.type || '').toLowerCase();
+  const isMp4 = rawType.includes('mp4');
+  const isWebm = rawType.includes('webm');
+  const ext = isMp4 ? 'mp4' : isWebm ? 'webm' : isAppleTouchDevice() ? 'mp4' : 'webm';
+  // iOS reconoce mejor video/mp4; si el blob ya trae tipo, respetarlo
+  const mime = rawType.startsWith('video/')
+    ? rawType.split(';')[0]
+    : ext === 'mp4'
+      ? 'video/mp4'
+      : 'video/webm';
+
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  const base = (customFilename || `grabacion-lumen-${stamp}`)
+    .replace(/\.(mp4|webm)$/i, '')
+    .replace(/[^\w\-]+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 60);
+  const filename = `${base || 'grabacion-lumen'}.${ext}`;
+
+  return new File([blob], filename, { type: mime, lastModified: Date.now() });
+}
+
+export type SaveVideoResult = {
+  ok: boolean;
+  method: 'share' | 'download' | 'cancelled';
+  message: string;
+};
+
+/**
+ * En iPhone el <a download> NO guarda bien en Archivos.
+ * Usamos Web Share (Compartir → Guardar en Archivos / Guardar Video).
+ */
+export async function saveRecordedVideo(
+  blob: Blob,
+  customFilename?: string
+): Promise<SaveVideoResult> {
+  if (!blob || blob.size < 100) {
+    return {
+      ok: false,
+      method: 'download',
+      message: 'El video está vacío. Vuelve a grabar la toma.',
+    };
+  }
+
+  const file = buildVideoFile(blob, customFilename);
+
+  const canShareFiles =
+    typeof navigator !== 'undefined' &&
+    typeof navigator.share === 'function' &&
+    typeof navigator.canShare === 'function' &&
+    navigator.canShare({ files: [file] });
+
+  if (canShareFiles) {
+    try {
+      await navigator.share({
+        files: [file],
+        title: file.name,
+        text: 'Grabación Lumen Teleprompter',
+      });
+      return {
+        ok: true,
+        method: 'share',
+        message:
+          'En el menú de iPhone elige “Guardar en Archivos” o “Guardar Video” (Fotos). Luego busca por el nombre del archivo.',
+      };
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        return {
+          ok: false,
+          method: 'cancelled',
+          message: 'No se guardó: cancelaste el menú de compartir.',
+        };
+      }
+      // continuar al fallback
+    }
+  }
+
+  // Fallback escritorio / navegadores sin share de archivos
+  try {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = file.name;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    window.setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 4000);
+
+    return {
+      ok: true,
+      method: 'download',
+      message: isAppleTouchDevice()
+        ? 'Si no lo ves en Archivos, vuelve a tocar Guardar y en el menú elige “Guardar en Archivos” (Descargas o En mi iPhone).'
+        : `Descarga iniciada: ${file.name}`,
+    };
+  } catch {
+    return {
+      ok: false,
+      method: 'download',
+      message: 'No se pudo guardar el video en este navegador.',
+    };
+  }
+}
+
+/** @deprecated usar saveRecordedVideo */
+export const downloadRecordedVideo = (blob: Blob, customFilename?: string) => {
+  void saveRecordedVideo(blob, customFilename);
 };
 
 interface UseVideoRecorderOptions {
