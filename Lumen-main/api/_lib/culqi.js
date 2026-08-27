@@ -1,7 +1,8 @@
 export function getCulqiKeys() {
+  // Acceso dinámico para que Vercel no inyecte strings vacíos en build time.
   return {
-    publicKey: process.env.CULQI_PUBLIC_KEY || '',
-    secretKey: process.env.CULQI_SECRET_KEY || '',
+    publicKey: (process.env['CULQI_PUBLIC_KEY'] || '').trim(),
+    secretKey: (process.env['CULQI_SECRET_KEY'] || '').trim(),
   };
 }
 

@@ -1,7 +1,7 @@
 function getCulqiKeys() {
   return {
-    publicKey: process.env.CULQI_PUBLIC_KEY || '',
-    secretKey: process.env.CULQI_SECRET_KEY || '',
+    publicKey: (process.env['CULQI_PUBLIC_KEY'] || '').trim(),
+    secretKey: (process.env['CULQI_SECRET_KEY'] || '').trim(),
   };
 }
 
