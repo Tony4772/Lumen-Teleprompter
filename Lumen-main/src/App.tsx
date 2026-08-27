@@ -23,7 +23,7 @@ import { useSpeechFollower } from './hooks/useSpeechFollower';
 import { useVideoRecorder } from './hooks/useVideoRecorder';
 import { countWords, estimateDurationSeconds } from './utils/prompterUtils';
 import { AudioRehearsalEngine } from './utils/speechSynthesis';
-import { beginAvCaptureFromUserGesture } from './utils/recordingCapture';
+import { beginAvCaptureFromUserGesture, isMobileDevice } from './utils/recordingCapture';
 import { Play, Pause } from 'lucide-react';
 
 const STORAGE_KEY_SCRIPTS = 'lumen_teleprompter_scripts_v1';
@@ -283,6 +283,14 @@ export default function App() {
     // Primero: getUserMedia en el gesto (nada antes).
     const avPromise = beginAvCaptureFromUserGesture();
 
+    // Encender preview YA para que el <video> exista cuando llegue el stream.
+    // Si falla el permiso, lo apagamos abajo.
+    setSettings((prev) => ({
+      ...prev,
+      cameraOverlay: true,
+      cameraLayout: prev.cameraLayout || 'pip',
+    }));
+
     AudioRehearsalEngine.stop();
     setIsAudioRehearsing(false);
 
@@ -290,14 +298,9 @@ export default function App() {
       const ready = await adoptAvPromise(avPromise);
       if (!ready) {
         setPlaybackStatus('idle');
+        setSettings((prev) => ({ ...prev, cameraOverlay: false }));
         return;
       }
-
-      setSettings((prev) => ({
-        ...prev,
-        cameraOverlay: true,
-        cameraLayout: prev.cameraLayout || 'pip',
-      }));
 
       if (settings.countdownSeconds > 0 && playbackStatus === 'idle') {
         clearCountdown();
@@ -397,8 +400,25 @@ export default function App() {
 
   // Update Settings Partial
   const handleUpdateSettings = useCallback((newSettings: Partial<PrompterSettings>) => {
+    // Si en móvil activan la cámara desde Ajustes, pedir AV en este mismo toque.
+    if (newSettings.cameraOverlay === true && isMobileDevice()) {
+      const avPromise = beginAvCaptureFromUserGesture();
+      void adoptAvPromise(avPromise).then((ok) => {
+        if (!ok) {
+          setSettings((prev) => ({ ...prev, cameraOverlay: false }));
+          return;
+        }
+        setSettings((prev) => ({
+          ...prev,
+          ...newSettings,
+          cameraOverlay: true,
+          cameraLayout: newSettings.cameraLayout || prev.cameraLayout || 'pip',
+        }));
+      });
+      return;
+    }
     setSettings((prev) => ({ ...prev, ...newSettings }));
-  }, []);
+  }, [adoptAvPromise]);
 
   // Script management handlers
   const handleUpdateScript = (updatedScript: Script) => {
@@ -631,11 +651,26 @@ export default function App() {
             isVoiceActive={settings.speechTracking}
             onToggleVoice={handleToggleVoice}
             isCameraActive={settings.cameraOverlay || mode === 'camera'}
-            onToggleCamera={() => setSettings((s) => ({
-              ...s,
-              cameraOverlay: !s.cameraOverlay,
-              cameraLayout: s.cameraLayout || 'pip',
-            }))}
+            onToggleCamera={() => {
+              const turningOn = !settings.cameraOverlay;
+              if (turningOn && isMobileDevice()) {
+                const avPromise = beginAvCaptureFromUserGesture();
+                void adoptAvPromise(avPromise).then((ok) => {
+                  if (!ok) return;
+                  setSettings((s) => ({
+                    ...s,
+                    cameraOverlay: true,
+                    cameraLayout: s.cameraLayout || 'pip',
+                  }));
+                });
+                return;
+              }
+              setSettings((s) => ({
+                ...s,
+                cameraOverlay: !s.cameraOverlay,
+                cameraLayout: s.cameraLayout || 'pip',
+              }));
+            }}
             isMirrorActive={mode === 'mirror' || settings.mirrorX}
             onToggleMirror={() => {
               if (mode === 'mirror') {
@@ -674,11 +709,26 @@ export default function App() {
             isVoiceActive={settings.speechTracking}
             onToggleVoice={handleToggleVoice}
             isCameraActive={settings.cameraOverlay || mode === 'camera'}
-            onToggleCamera={() => setSettings((s) => ({
-              ...s,
-              cameraOverlay: !s.cameraOverlay,
-              cameraLayout: 'pip',
-            }))}
+            onToggleCamera={() => {
+              const turningOn = !settings.cameraOverlay;
+              if (turningOn && isMobileDevice()) {
+                const avPromise = beginAvCaptureFromUserGesture();
+                void adoptAvPromise(avPromise).then((ok) => {
+                  if (!ok) return;
+                  setSettings((s) => ({
+                    ...s,
+                    cameraOverlay: true,
+                    cameraLayout: 'pip',
+                  }));
+                });
+                return;
+              }
+              setSettings((s) => ({
+                ...s,
+                cameraOverlay: !s.cameraOverlay,
+                cameraLayout: 'pip',
+              }));
+            }}
             isMirrorActive={mode === 'mirror' || settings.mirrorX}
             onToggleMirror={() => {
               if (mode === 'mirror') {

@@ -129,24 +129,33 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
     let ownsStream = false;
 
     const attachToVideo = (s: MediaStream) => {
-      if (videoRef.current) {
+      const tryAttach = (attempts = 0) => {
+        const el = videoRef.current;
+        if (!el) {
+          if (attempts < 30) {
+            requestAnimationFrame(() => tryAttach(attempts + 1));
+          }
+          return;
+        }
         // En móviles, aislar solo pistas de video para el preview
-        // para que el OS (iOS CoreAudio / Android AudioFlinger) no atenúe el micrófono
+        // para que el OS no atenúe el micrófono de la grabación
         const videoTracks = s.getVideoTracks();
         if (videoTracks.length > 0) {
-          videoRef.current.srcObject = new MediaStream(videoTracks);
+          el.srcObject = new MediaStream(videoTracks);
         } else {
-          videoRef.current.srcObject = s;
+          el.srcObject = s;
         }
-        videoRef.current.muted = true;
-        videoRef.current.defaultMuted = true;
-        videoRef.current.volume = 0;
-        videoRef.current.playsInline = true;
-        videoRef.current.setAttribute('playsinline', 'true');
-        videoRef.current.setAttribute('muted', 'true');
-        videoRef.current.play().catch(console.warn);
+        el.muted = true;
+        el.defaultMuted = true;
+        el.volume = 0;
+        el.playsInline = true;
+        el.setAttribute('playsinline', 'true');
+        el.setAttribute('muted', 'true');
+        el.play().catch(console.warn);
         setIsCameraReady(true);
-      }
+        setCameraError(null);
+      };
+      tryAttach();
     };
 
     const setupCamera = async () => {
