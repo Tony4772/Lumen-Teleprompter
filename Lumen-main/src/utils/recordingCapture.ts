@@ -139,12 +139,14 @@ function requestMobileAvStream(): Promise<MediaStream> {
  * CRÍTICO: llamar de forma SÍNCRONA en el onClick (sin await antes).
  */
 export function beginAvCaptureFromUserGesture(): Promise<MediaStream> {
-  const existing = getReadyAvStream();
-  if (existing) {
-    existing.getTracks().forEach((t) => {
+  // Si el preview YA tiene cámara viva (caso: página cargada con permiso),
+  // reutilizar SIEMPRE. Un segundo getUserMedia en iPhone apaga el vídeo.
+  const shared = getSharedCameraStream();
+  if (shared && isLive(shared, 'video')) {
+    shared.getTracks().forEach((t) => {
       t.enabled = true;
     });
-    return Promise.resolve(existing);
+    return Promise.resolve(shared);
   }
 
   if (!navigator.mediaDevices?.getUserMedia) {

@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { RecordedTake } from '../types';
-import { setSharedCameraStream, isAppleTouchDevice } from '../utils/cameraStreamStore';
+import { setSharedCameraStream, getSharedCameraStream, isAppleTouchDevice } from '../utils/cameraStreamStore';
 import {
   beginAvCaptureFromUserGesture,
   getReadyAvStream,
@@ -151,14 +151,20 @@ export const useVideoRecorder = ({
       console.error('adoptAvPromise failed:', err?.name, err?.message, err);
       sessionStreamRef.current = null;
 
-      // Si ya hay un stream usable (carrera), úsalo
+      // Si falló un getUserMedia nuevo pero el preview sigue vivo, úsalo
+      const shared = getSharedCameraStream();
+      if (shared && shared.getVideoTracks().some((t) => t.readyState === 'live')) {
+        sessionStreamRef.current = shared;
+        return true;
+      }
+
       const ready = getReadyAvStream();
       if (ready) {
         sessionStreamRef.current = ready;
         return true;
       }
 
-  setRecorderError(
+      setRecorderError(
         err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError'
           ? 'PERMISSION'
           : err?.name === 'NotReadableError' || err?.name === 'TrackStartError'
@@ -193,11 +199,13 @@ export const useVideoRecorder = ({
 
       const stream =
         sessionStreamRef.current &&
-        sessionStreamRef.current.getVideoTracks().some((t) => t.readyState === 'live') &&
-        (!isMobileDevice() ||
-          sessionStreamRef.current.getAudioTracks().some((t) => t.readyState === 'live'))
+        sessionStreamRef.current.getVideoTracks().some((t) => t.readyState === 'live')
           ? sessionStreamRef.current
-          : getReadyAvStream();
+          : getReadyAvStream() ||
+            (() => {
+              const s = getSharedCameraStream();
+              return s && s.getVideoTracks().some((t) => t.readyState === 'live') ? s : null;
+            })();
 
       if (!stream || !stream.getVideoTracks().some((t) => t.readyState === 'live')) {
         setRecorderError('Cámara no lista. Toca Iniciar otra vez.');
@@ -205,14 +213,8 @@ export const useVideoRecorder = ({
         return false;
       }
 
-      if (
-        isMobileDevice() &&
-        !stream.getAudioTracks().some((t) => t.readyState === 'live')
-      ) {
-        setRecorderError('Sin micrófono. Toca Iniciar y elige Permitir.');
-        setIsRecording(false);
-        return false;
-      }
+      // Si no hay mic en el stream del preview, seguimos con video (no matar la cámara).
+      // El audio se pedirá en el próximo ciclo si hace falta.
 
       sessionStreamRef.current = stream;
       stream.getTracks().forEach((t) => {

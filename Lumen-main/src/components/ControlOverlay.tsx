@@ -144,10 +144,9 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
             type="button"
             onClick={() => {
               if (!isPlaying && !isRecording && playbackStatus !== 'countdown') {
-                // Llamada directa: nada de wrappers antes del gesto
-                const av = navigator.mediaDevices?.getUserMedia
-                  ? navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-                  : beginAvCaptureFromUserGesture();
+                // Reutilizar la cámara YA abierta al cargar. Un segundo getUserMedia
+                // en iPhone apaga el preview y falla con NotAllowed.
+                const av = beginAvCaptureFromUserGesture();
                 onTogglePlay(av);
                 return;
               }
@@ -272,9 +271,7 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
           <button
             onClick={() => {
               if (!isPlaying && !isRecording && playbackStatus !== 'countdown') {
-                const av = navigator.mediaDevices?.getUserMedia
-                  ? navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-                  : beginAvCaptureFromUserGesture();
+                const av = beginAvCaptureFromUserGesture();
                 onTogglePlay(av);
                 return;
               }
