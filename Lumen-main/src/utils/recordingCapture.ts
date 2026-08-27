@@ -1,14 +1,11 @@
 /**
- * Captura AV universal (Chrome, Safari, Android, iPhone, escritorio).
- *
- * Regla: MediaRecorder necesita video+audio del MISMO getUserMedia.
- * Si el preview solo tiene cámara, hay que liberarla y pedir AV en el gesto de Iniciar
- * (si no, el navegador no muestra permiso de mic y la toma sale muda).
+ * Captura AV universal (móvil y escritorio).
+ * - Si ya hay video+audio vivos → reutilizar (no apagar preview).
+ * - Si falta mic → getUserMedia({video,audio}) en el gesto; solo entonces reemplazar el stream.
  */
 import {
   getSharedCameraStream,
   setSharedCameraStream,
-  releaseSharedCameraStreamSync,
   isAppleTouchDevice,
 } from './cameraStreamStore';
 
@@ -62,23 +59,8 @@ export function getReadyAvStream(): MediaStream | null {
   return null;
 }
 
-function reopenVideoPreviewOnly(): void {
-  if (!navigator.mediaDevices?.getUserMedia) return;
-  void navigator.mediaDevices
-    .getUserMedia({ video: true, audio: false })
-    .then((stream) => {
-      stream.getTracks().forEach((t) => {
-        t.enabled = true;
-      });
-      setSharedCameraStream(stream, { stopPrevious: true });
-    })
-    .catch(() => {
-      // ignore
-    });
-}
-
 /**
- * Un solo getUserMedia con video+audio (mismo gesto / mismos tracks para MediaRecorder).
+ * Pedir video+audio. No detener el preview hasta tener el nuevo stream OK.
  */
 function requestAvStream(): Promise<MediaStream> {
   if (!navigator.mediaDevices?.getUserMedia) {
@@ -102,18 +84,19 @@ function requestAvStream(): Promise<MediaStream> {
         stream.getTracks().forEach((t) => t.stop());
         throw new Error('NO_AUDIO');
       }
+      // Solo aquí se sustituye el preview (video-only u otro).
       setSharedCameraStream(stream, { stopPrevious: true });
       return stream;
     });
 }
 
 /**
- * Llamar SÍNCRONO en el onClick de Iniciar.
+ * Llamar SÍNCRONO en el onClick de Iniciar (gesto del usuario).
  */
 export function beginAvCaptureFromUserGesture(): Promise<MediaStream> {
   const shared = getSharedCameraStream();
 
-  // Solo reutilizar si YA hay mic live (si no, la grabación sale muda).
+  // Ya hay cámara + mic → no tocar nada (mantiene preview y graba con audio).
   if (shared && isLive(shared, 'video') && isLive(shared, 'audio')) {
     shared.getTracks().forEach((t) => {
       t.enabled = true;
@@ -121,17 +104,9 @@ export function beginAvCaptureFromUserGesture(): Promise<MediaStream> {
     return Promise.resolve(shared);
   }
 
-  // Preview solo-video: hay que soltarlo en este mismo tick o el OS no pide mic
-  // (la cámara sigue “en uso” y getUserMedia AV falla / no muestra micrófono).
-  if (shared && isLive(shared, 'video')) {
-    releaseSharedCameraStreamSync();
-  }
-
-  return requestAvStream().catch((err) => {
-    // Si falló el AV, intentar devolver el preview de video para no dejar pantalla negra.
-    reopenVideoPreviewOnly();
-    throw err;
-  });
+  // Falta mic (o no hay stream): pedir AV en este gesto.
+  // Si falla, el preview anterior NO se apaga (stopPrevious solo tras éxito).
+  return requestAvStream();
 }
 
 /** @deprecated */
