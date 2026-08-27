@@ -194,11 +194,6 @@ export const useVideoRecorder = ({
         return false;
       }
 
-      if (!stream.getAudioTracks().some((t) => t.readyState === 'live')) {
-        setIsRecording(false);
-        return false;
-      }
-
       sessionStreamRef.current = stream;
       stream.getTracks().forEach((t) => {
         t.enabled = true;

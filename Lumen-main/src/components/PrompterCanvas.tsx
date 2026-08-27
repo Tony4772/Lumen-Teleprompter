@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { PrompterSettings, PlaybackStatus, CameraLayout } from '../types';
 import { parseScriptContent, ParsedLine, countLineScriptWords } from '../utils/prompterUtils';
 import { setSharedCameraStream, getSharedCameraStream, CAMERA_STREAM_EVENT } from '../utils/cameraStreamStore';
-import { beginAvCaptureFromUserGesture, getReadyAvStream } from '../utils/recordingCapture';
 import { 
   Eye, 
   ArrowRight, 
@@ -147,50 +146,34 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
       }
     };
 
-    const adoptAv = (s: MediaStream) => {
-      if (cancelled) return;
-      if (
-        !s.getAudioTracks().some((t) => t.readyState === 'live') ||
-        !s.getVideoTracks().some((t) => t.readyState === 'live')
-      ) {
-        return;
-      }
-      stream = s;
-      ownsStream = false;
-      setSharedCameraStream(s, { stopPrevious: false });
-      attachToVideo(s);
-    };
-
     const setupCamera = async () => {
       if (!isCameraEnabled) return;
 
-      // Solo reutilizar si ya hay cámara Y mic vivos
-      const ready = getReadyAvStream();
-      if (ready) {
-        adoptAv(ready);
+      // Si el grabador ya abrió un stream, reutilizarlo (no apagar preview)
+      const existing = getSharedCameraStream();
+      if (existing && existing.getVideoTracks().some((t) => t.readyState === 'live')) {
+        stream = existing;
+        ownsStream = false;
+        attachToVideo(existing);
         return;
       }
 
       try {
-        // Misma petición que antes: cámara + mic juntos. Sin audio:false.
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
-        });
+        // Pedir cámara+mic; si el mic falla, abrir cámara igual (preview no puede quedar negro)
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          });
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+            audio: false,
+          });
+        }
 
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-
-        if (
-          !stream.getAudioTracks().some((t) => t.readyState === 'live') ||
-          !stream.getVideoTracks().some((t) => t.readyState === 'live')
-        ) {
-          // No guardar video-only: iOS a veces entrega cámara sin pedir mic sin gesto.
-          stream.getTracks().forEach((t) => t.stop());
-          stream = null;
-          setIsCameraReady(false);
           return;
         }
 
@@ -198,32 +181,29 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
         setSharedCameraStream(stream);
         attachToVideo(stream);
       } catch (err) {
-        console.warn('Webcam AV not accessible yet:', err);
+        console.warn('Webcam not accessible:', err);
         setIsCameraReady(false);
-        const readyAfter = getReadyAvStream();
-        if (readyAfter) adoptAv(readyAfter);
+        const fromRecorder = getSharedCameraStream();
+        if (
+          fromRecorder &&
+          fromRecorder.getVideoTracks().some((t) => t.readyState === 'live')
+        ) {
+          stream = fromRecorder;
+          ownsStream = false;
+          attachToVideo(fromRecorder);
+        }
       }
     };
 
     setupCamera();
 
-    // Si al cargar no hubo gesto (iPhone no pide mic), el primer toque pide AV sin UI.
-    const onFirstGesture = () => {
-      if (cancelled || !isCameraEnabled) return;
-      if (getReadyAvStream()) return;
-      const av = beginAvCaptureFromUserGesture();
-      void av.then((s) => {
-        if (!cancelled) adoptAv(s);
-      }).catch((err) => {
-        console.warn('First-gesture AV failed:', err);
-      });
-    };
-    window.addEventListener('touchstart', onFirstGesture, { capture: true, once: true });
-    window.addEventListener('pointerdown', onFirstGesture, { capture: true, once: true });
-
     const onExternalStream = () => {
-      const s = getReadyAvStream();
-      if (s) adoptAv(s);
+      const s = getSharedCameraStream();
+      if (s && s.getVideoTracks().some((t) => t.readyState === 'live')) {
+        stream = s;
+        ownsStream = false;
+        attachToVideo(s);
+      }
     };
     window.addEventListener(CAMERA_STREAM_EVENT, onExternalStream);
 
@@ -240,8 +220,6 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
       cancelled = true;
       clearInterval(syncInterval);
       window.removeEventListener(CAMERA_STREAM_EVENT, onExternalStream);
-      window.removeEventListener('touchstart', onFirstGesture, true);
-      window.removeEventListener('pointerdown', onFirstGesture, true);
       // Solo detener tracks si este efecto los abrió (no los del grabador)
       if (ownsStream && stream) {
         stream.getTracks().forEach((t) => t.stop());
