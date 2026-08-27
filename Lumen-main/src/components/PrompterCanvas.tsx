@@ -489,6 +489,27 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
     if (isTap) {
       const now = Date.now();
       const doubleTapDelay = 350;
+      const mobile = isMobileDevice();
+
+      // Móvil: sin setTimeout (rompe el gesto de getUserMedia).
+      if (mobile) {
+        triggerHaptic(20);
+        if (playbackStatus !== 'playing' && playbackStatus !== 'countdown') {
+          const av = beginAvCaptureFromUserGesture();
+          onTogglePlay(av);
+        } else {
+          onTogglePlay();
+        }
+        setTapFeedback({
+          x: touch.clientX,
+          y: touch.clientY,
+          type: playbackStatus === 'playing' ? 'pause' : 'play',
+        });
+        setTimeout(() => setTapFeedback(null), 600);
+        lastTapTimeRef.current = now;
+        touchStartRef.current = null;
+        return;
+      }
 
       if (now - lastTapTimeRef.current < doubleTapDelay) {
         // Double tap: Restart from top
