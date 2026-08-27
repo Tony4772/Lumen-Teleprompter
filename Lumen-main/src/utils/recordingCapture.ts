@@ -123,26 +123,21 @@ function requestMobileAvStream(): Promise<MediaStream> {
     releaseSharedCameraStreamSync();
   }
 
-  return navigator.mediaDevices
-    .getUserMedia({ video: true, audio: true })
-    .catch(() =>
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true })
-    )
-    .then((stream) => {
-      stream.getTracks().forEach((t) => {
-        t.enabled = true;
-      });
-      if (!isLive(stream, 'video')) {
-        stream.getTracks().forEach((t) => t.stop());
-        throw new Error('NO_VIDEO');
-      }
-      if (!isLive(stream, 'audio')) {
-        stream.getTracks().forEach((t) => t.stop());
-        throw new Error('NO_AUDIO');
-      }
-      setSharedCameraStream(stream, { stopPrevious: true });
-      return stream;
+  return navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then((stream) => {
+    stream.getTracks().forEach((t) => {
+      t.enabled = true;
     });
+    if (!isLive(stream, 'video')) {
+      stream.getTracks().forEach((t) => t.stop());
+      throw new Error('NO_VIDEO');
+    }
+    if (!isLive(stream, 'audio')) {
+      stream.getTracks().forEach((t) => t.stop());
+      throw new Error('NO_AUDIO');
+    }
+    setSharedCameraStream(stream, { stopPrevious: true });
+    return stream;
+  });
 }
 
 /**
