@@ -1,7 +1,6 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getCulqiKeys } from '../../Lumen-main/server/culqiService';
+const { getCulqiKeys } = require('../_lib/culqi');
 
-export default function handler(_req: VercelRequest, res: VercelResponse) {
+module.exports = function handler(_req, res) {
   const { publicKey, secretKey } = getCulqiKeys();
   if (!publicKey) {
     return res.status(503).json({
@@ -16,4 +15,4 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
     minAmount: 1,
     hasSecret: Boolean(secretKey),
   });
-}
+};

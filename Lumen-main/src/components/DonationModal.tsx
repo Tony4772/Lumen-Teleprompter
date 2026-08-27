@@ -170,7 +170,7 @@ export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose })
         healthData = await readApiJson(healthRes);
       } catch {
         throw new Error(
-          'La API de donaciones no está activa en este sitio. En Vercel: Settings → General → Root Directory = "Lumen-main", agrega CULQI_PUBLIC_KEY y CULQI_SECRET_KEY, y haz Redeploy. Luego abre tu-dominio/api/health (debe verse JSON).'
+          'La API de donaciones falló (respuesta no JSON). Abre /api/health en otra pestaña: debe verse {"status":"ok"...}. Si da error, en Vercel revisa el deploy y las variables CULQI_PUBLIC_KEY / CULQI_SECRET_KEY.'
         );
       }
       if (!healthRes.ok) {

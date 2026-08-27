@@ -1,7 +1,6 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getCulqiKeys } from '../../server/culqiService';
+import { getCulqiKeys } from '../_lib/culqi.js';
 
-export default function handler(_req: VercelRequest, res: VercelResponse) {
+export default function handler(_req, res) {
   const { publicKey, secretKey } = getCulqiKeys();
   if (!publicKey) {
     return res.status(503).json({

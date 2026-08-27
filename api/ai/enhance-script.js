@@ -1,7 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getGeminiClient } from '../../Lumen-main/server/culqiService';
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -14,24 +11,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       language = 'Spanish',
     } = req.body || {};
 
-    const ai = getGeminiClient();
-    if (!ai) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
       return res.status(500).json({ error: 'Gemini API key is not configured.' });
     }
 
+    const { GoogleGenAI } = require('@google/genai');
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
+    });
+
     let systemPrompt = '';
     if (action === 'add_cues') {
-      systemPrompt = `Inject bracketed teleprompter cues. Keep original wording.`;
+      systemPrompt =
+        'Analyze the teleprompter script and smartly inject bracketed stage directions/cues. Keep original wording.';
     } else if (action === 'natural_spoken') {
-      systemPrompt = `Rephrase for natural spoken delivery on camera.`;
+      systemPrompt =
+        'Rephrase this script so it sounds natural to speak aloud. Preserve key points.';
     } else if (action === 'shorten') {
-      systemPrompt = `Condense by 30-40% keeping key points.`;
+      systemPrompt = 'Condense this script by 30-40%. Format for teleprompter.';
     } else if (action === 'expand') {
-      systemPrompt = `Elaborate with examples while keeping teleprompter formatting.`;
+      systemPrompt = 'Elaborate on this script with examples. Format for teleprompter.';
     } else if (action === 'translate') {
-      systemPrompt = `Translate into ${language}, preserving cue markers.`;
+      systemPrompt = `Translate this teleprompter script into ${language}, preserving cue markers.`;
     } else {
-      systemPrompt = `Refine according to: ${customInstruction}`;
+      systemPrompt = `Refine this teleprompter script according to: ${customInstruction}`;
     }
 
     const response = await ai.models.generateContent({
@@ -40,8 +45,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     return res.status(200).json({ script: response.text || script });
-  } catch (err: any) {
+  } catch (err) {
     console.error('enhance-script error:', err);
     return res.status(500).json({ error: err?.message || 'Failed to enhance script' });
   }
-}
+};
