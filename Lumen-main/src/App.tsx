@@ -85,6 +85,14 @@ export default function App() {
         // Nunca auto-activar voz al cargar: en móvil el ASR sin gesto del usuario
         // dispara "not-allowed" y muestra el error rojo.
         loaded.speechTracking = false;
+        // Móvil: no restaurar cámara encendida (getUserMedia sin toque = NotAllowed).
+        if (
+          typeof navigator !== 'undefined' &&
+          (/iPad|iPhone|iPod|Android/i.test(navigator.userAgent) ||
+            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
+        ) {
+          loaded.cameraOverlay = false;
+        }
         return loaded;
       }
     } catch (e) {
@@ -705,20 +713,23 @@ export default function App() {
         onClose={() => setIsMobileMoreOpen(false)}
         isCameraActive={settings.cameraOverlay || mode === 'camera'}
         onToggleCamera={() => {
-          setSettings((s) => {
-            const turningOn = !s.cameraOverlay;
-            return {
-              ...s,
-              cameraOverlay: turningOn,
-              cameraLayout: turningOn ? 'pip' : s.cameraLayout,
-            };
-          });
-          if (!settings.cameraOverlay) {
-            setMobileScreen('prompter');
-            setMode('camera');
-          } else {
-            setMode('fullscreen');
+          const turningOn = !settings.cameraOverlay;
+          if (turningOn) {
+            const avPromise = beginAvCaptureFromUserGesture();
+            void adoptAvPromise(avPromise).then((ok) => {
+              if (!ok) return;
+              setSettings((s) => ({
+                ...s,
+                cameraOverlay: true,
+                cameraLayout: 'pip',
+              }));
+              setMobileScreen('prompter');
+              setMode('camera');
+            });
+            return;
           }
+          setSettings((s) => ({ ...s, cameraOverlay: false }));
+          setMode('fullscreen');
         }}
         isMirrorActive={mode === 'mirror' || settings.mirrorX}
         onToggleMirror={() => {

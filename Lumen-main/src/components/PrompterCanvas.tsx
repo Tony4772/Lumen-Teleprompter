@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { PrompterSettings, PlaybackStatus, CameraLayout } from '../types';
 import { parseScriptContent, ParsedLine, countLineScriptWords } from '../utils/prompterUtils';
 import { setSharedCameraStream, getSharedCameraStream, CAMERA_STREAM_EVENT } from '../utils/cameraStreamStore';
+import { isMobileDevice } from '../utils/recordingCapture';
 import { 
   Eye, 
   ArrowRight, 
@@ -151,7 +152,6 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
     const setupCamera = async () => {
       if (!isCameraEnabled) return;
 
-      // Si el grabador ya abrió un stream AV, reutilizarlo
       const existing = getSharedCameraStream();
       if (existing && existing.getVideoTracks().some((t) => t.readyState === 'live')) {
         stream = existing;
@@ -161,16 +161,22 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
         return;
       }
 
+      // Móvil: no pedir getUserMedia aquí. Sin gesto = NotAllowed y rompe Iniciar.
+      // El preview se enciende cuando Iniciar abre el stream compartido.
+      if (isMobileDevice()) {
+        setIsCameraReady(false);
+        setCameraError(null);
+        return;
+      }
+
       try {
         setCameraError(null);
-        // Solicitar cámara y micrófono juntos para que iOS/Android registre ambos permisos en un solo toque
         try {
           stream = await navigator.mediaDevices.getUserMedia({
             video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
             audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
           });
         } catch {
-          // Fallback: si el micrófono no está disponible o fue denegado, abrir solo cámara
           stream = await navigator.mediaDevices.getUserMedia({
             video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
             audio: false,
@@ -179,6 +185,21 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
 
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+
+        const current = getSharedCameraStream();
+        if (
+          current &&
+          current !== stream &&
+          current.getVideoTracks().some((t) => t.readyState === 'live') &&
+          current.getAudioTracks().some((t) => t.readyState === 'live')
+        ) {
+          stream.getTracks().forEach((t) => t.stop());
+          stream = current;
+          ownsStream = false;
+          attachToVideo(current);
+          setCameraError(null);
           return;
         }
 
