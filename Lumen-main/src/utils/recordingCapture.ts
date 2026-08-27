@@ -1,7 +1,5 @@
 /**
- * Captura AV para MediaRecorder en todos los dispositivos.
- * Safari/iOS: el mic de getUserMedia a veces no entra al MP4 si no se
- * enruta por Web Audio; por eso hay un wrap opcional.
+ * Captura AV para MediaRecorder (Safari, Chrome iOS/Android, escritorio).
  */
 import {
   getSharedCameraStream,
@@ -19,7 +17,6 @@ export function isMobileRecordingDevice(): boolean {
 
 export function isWebKitMediaRecorder(): boolean {
   if (typeof navigator === 'undefined') return false;
-  // Chrome iOS también es WebKit
   return (
     isAppleTouchDevice() ||
     (/Safari/i.test(navigator.userAgent) && !/Chrome|Chromium|Edg\//i.test(navigator.userAgent))
@@ -30,17 +27,18 @@ export function pickRecorderMimeType(): string {
   if (typeof MediaRecorder === 'undefined') return '';
 
   const webkit = isWebKitMediaRecorder();
-  const mp4 = [
-    'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
-    'video/mp4;codecs=mp4a.40.2,avc1.42E01E',
-    'video/mp4;codecs=avc1.4D401E,mp4a.40.2',
-    'video/mp4;codecs=avc1,mp4a.40.2',
-    'video/mp4',
-  ];
+  // En Safari, codecs muy específicos a veces aceptan isTypeSupported pero generan 0 bytes.
+  // Preferir video/mp4 simple en WebKit.
+  const mp4 = webkit
+    ? ['video/mp4', 'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2']
+    : [
+        'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+        'video/mp4;codecs=avc1,mp4a.40.2',
+        'video/mp4',
+      ];
   const webm = [
     'video/webm;codecs=vp9,opus',
     'video/webm;codecs=vp8,opus',
-    'video/webm;codecs=vp8,vorbis',
     'video/webm',
   ];
   const list = webkit ? [...mp4, ...webm] : [...webm, ...mp4];
@@ -54,9 +52,22 @@ export function pickRecorderMimeType(): string {
   return '';
 }
 
-/** Un solo getUserMedia video+audio. Obligatorio en el gesto del usuario en móvil. */
+/** Un solo getUserMedia video+audio. */
 export async function acquireAvStream(): Promise<MediaStream> {
-  releaseSharedCameraStreamSync();
+  // Solo liberar si había preview sin audio (video-only)
+  const prev = getSharedCameraStream();
+  if (prev && !prev.getAudioTracks().some((t) => t.readyState === 'live')) {
+    releaseSharedCameraStreamSync();
+  } else if (prev) {
+    prev.getTracks().forEach((t) => {
+      try {
+        t.stop();
+      } catch {
+        // ignore
+      }
+    });
+    releaseSharedCameraStreamSync();
+  }
 
   const stream = await navigator.mediaDevices.getUserMedia({
     video: { facingMode: 'user' },
@@ -84,95 +95,30 @@ export async function acquireAvStream(): Promise<MediaStream> {
 }
 
 export type RecorderStreamHandle = {
-  /** Stream a pasar a MediaRecorder */
   recordStream: MediaStream;
-  /** Stream de cámara (preview); puede ser el mismo */
   cameraStream: MediaStream;
   cleanup: () => void;
 };
 
 /**
- * Prepara stream grabable.
- * En WebKit, reinyecta el mic por AudioContext → MediaStreamDestination
- * para que el AAC quede dentro del MP4 (bug conocido de MediaRecorder+mic crudo).
+ * Stream para MediaRecorder.
+ * Safari: usar el MediaStream original de getUserMedia (sin AudioContext).
+ * El wrap por Web Audio dejaba tomas de 0 bytes en varios iOS.
  */
 export async function buildRecorderStream(cameraStream: MediaStream): Promise<RecorderStreamHandle> {
   const videoTracks = cameraStream.getVideoTracks().filter((t) => t.readyState === 'live');
-  const audioTracks = cameraStream.getAudioTracks().filter((t) => t.readyState === 'live');
-
-  audioTracks.forEach((t) => {
-    t.enabled = true;
-  });
-
   if (!videoTracks.length) {
     throw new Error('NO_VIDEO');
   }
 
-  if (!audioTracks.length || !isWebKitMediaRecorder()) {
-    return {
-      recordStream: cameraStream,
-      cameraStream,
-      cleanup: () => {},
-    };
-  }
-
-  const AC =
-    window.AudioContext ||
-    (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-  const ctx = new AC();
-  if (ctx.state === 'suspended') {
-    await ctx.resume();
-  }
-
-  const micSource = ctx.createMediaStreamSource(new MediaStream([audioTracks[0]]));
-  const dest = ctx.createMediaStreamDestination();
-
-  // Señal mínima para que Safari no trate el track como “muted/silent”
-  const osc = ctx.createOscillator();
-  const gate = ctx.createGain();
-  gate.gain.value = 0.0001;
-  osc.connect(gate);
-  gate.connect(dest);
-  osc.start();
-
-  micSource.connect(dest);
-
-  const processedAudio = dest.stream.getAudioTracks();
-  if (!processedAudio.length) {
-    try {
-      osc.stop();
-    } catch {
-      // ignore
-    }
-    void ctx.close();
-    return {
-      recordStream: cameraStream,
-      cameraStream,
-      cleanup: () => {},
-    };
-  }
-
-  processedAudio.forEach((t) => {
+  cameraStream.getAudioTracks().forEach((t) => {
     t.enabled = true;
   });
 
-  const recordStream = new MediaStream([...videoTracks, ...processedAudio]);
-
   return {
-    recordStream,
+    recordStream: cameraStream,
     cameraStream,
-    cleanup: () => {
-      try {
-        osc.stop();
-      } catch {
-        // ignore
-      }
-      try {
-        void ctx.close();
-      } catch {
-        // ignore
-      }
-    },
+    cleanup: () => {},
   };
 }
 
@@ -196,7 +142,6 @@ export function getLiveVideoStream(): MediaStream | null {
   return null;
 }
 
-/** Solo micrófono (Chrome/Android): no toca la cámara del preview. */
 export async function acquireMicOnly(): Promise<MediaStreamTrack[]> {
   const mic = await navigator.mediaDevices.getUserMedia({
     audio: true,
@@ -209,7 +154,6 @@ export async function acquireMicOnly(): Promise<MediaStreamTrack[]> {
   return tracks;
 }
 
-/** Une video existente + tracks de audio en un MediaStream para MediaRecorder. */
 export function combineVideoAndAudio(
   videoStream: MediaStream,
   audioTracks: MediaStreamTrack[]

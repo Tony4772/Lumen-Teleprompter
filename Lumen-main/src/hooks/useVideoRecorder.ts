@@ -343,19 +343,15 @@ export const useVideoRecorder = ({
         const handle = recorderHandleRef.current;
 
         const mimeType = pickRecorderMimeType();
-        const recorderOptions: MediaRecorderOptions = {};
-        if (mimeType) recorderOptions.mimeType = mimeType;
-        if (isWebKitMediaRecorder()) {
-          recorderOptions.audioBitsPerSecond = 128000;
-          recorderOptions.videoBitsPerSecond = 2_500_000;
-        }
+        // Safari: sin bitrates forzados (pueden dejar el archivo en 0 bytes)
+        const recorderOptions: MediaRecorderOptions = mimeType ? { mimeType } : {};
 
         let recorder: MediaRecorder;
         try {
           recorder = new MediaRecorder(handle.recordStream, recorderOptions);
         } catch {
           try {
-            recorder = new MediaRecorder(handle.recordStream, mimeType ? { mimeType } : {});
+            recorder = new MediaRecorder(handle.recordStream, { mimeType: 'video/mp4' });
           } catch {
             recorder = new MediaRecorder(handle.recordStream);
           }
@@ -380,22 +376,28 @@ export const useVideoRecorder = ({
           setRecorderError('Error durante la grabación. Intenta de nuevo.');
         };
 
-        recorder.onstop = () => {
+        const finalizeTake = () => {
           recorderHandleRef.current?.cleanup();
           recorderHandleRef.current = null;
 
           const chunks = recordedChunksRef.current;
           if (!chunks.length) {
-            setRecorderError('No se generó video. Vuelve a Iniciar.');
+            setRecorderError(
+              'La toma no se guardó. Graba al menos 2–3 segundos y vuelve a pausar.'
+            );
             setIsRecording(false);
             return;
           }
 
-          const finalMimeType =
-            mimeType || recorder.mimeType || chunks[0]?.type || 'video/mp4';
-          const blob = new Blob(chunks, { type: finalMimeType.split(';')[0] });
+          const finalMimeType = (
+            recorder.mimeType ||
+            mimeType ||
+            chunks[0]?.type ||
+            'video/mp4'
+          ).split(';')[0];
+          const blob = new Blob(chunks, { type: finalMimeType });
           if (blob.size < 1000) {
-            setRecorderError('La grabación quedó vacía. Intenta de nuevo.');
+            setRecorderError('La grabación quedó vacía. Intenta de nuevo unos segundos más.');
             setIsRecording(false);
             return;
           }
@@ -428,14 +430,22 @@ export const useVideoRecorder = ({
           onFinishedRef.current?.(newTake);
         };
 
+        // Safari a veces dispara onstop antes del último dataavailable
+        recorder.onstop = () => {
+          window.setTimeout(finalizeTake, 150);
+        };
+
         try {
-          if (isWebKitMediaRecorder()) {
-            recorder.start();
-          } else {
-            recorder.start(1000);
-          }
+          recorder.start(1000);
         } catch {
-          recorder.start();
+          try {
+            recorder.start();
+          } catch (e) {
+            console.error('MediaRecorder.start failed', e);
+            setRecorderError('No se pudo iniciar el grabador. Toca Iniciar otra vez.');
+            setIsRecording(false);
+            return false;
+          }
         }
 
         recordingStartTimeRef.current = Date.now();
@@ -469,14 +479,25 @@ export const useVideoRecorder = ({
     const recorder = mediaRecorderRef.current;
     if (recorder && recorder.state !== 'inactive') {
       try {
+        // Safari: pedir datos y dar un instante antes de stop
         if (recorder.state === 'recording') {
           try {
             recorder.requestData();
           } catch {
             // ignore
           }
+          window.setTimeout(() => {
+            try {
+              if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+                mediaRecorderRef.current.stop();
+              }
+            } catch (e) {
+              console.warn('Error stopping media recorder:', e);
+            }
+          }, 80);
+        } else {
+          recorder.stop();
         }
-        recorder.stop();
       } catch (e) {
         console.warn('Error stopping media recorder:', e);
       }
