@@ -170,9 +170,16 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
         return;
       }
 
+      // Móvil: no pedir permiso en useEffect (Safari lo bloquea sin toque).
+      // El botón "Permitir cámara" / primer toque dispara getUserMedia.
+      if (isMobileDevice()) {
+        setIsCameraReady(false);
+        setCameraError(null);
+        return;
+      }
+
       try {
         setCameraError(null);
-        // Pedir cámara + mic al abrir (comportamiento original).
         try {
           stream = await navigator.mediaDevices.getUserMedia({
             video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
@@ -222,7 +229,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
           setCameraError(null);
           return;
         }
-        setCameraError('Toca Lectura o Iniciar para permitir la cámara.');
+        setCameraError('No se pudo acceder a la cámara.');
       }
     };
 
@@ -556,6 +563,31 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
     { id: 'background', label: 'Fondo', hint: 'Detrás del texto', icon: <ImageIcon className="w-3.5 h-3.5" /> },
   ];
 
+  const requestCameraFromTap = useCallback(() => {
+    const existing = getSharedCameraStream();
+    if (existing && existing.getVideoTracks().some((t) => t.readyState === 'live')) {
+      setIsCameraReady(true);
+      setCameraError(null);
+      return;
+    }
+    const av = beginAvCaptureFromUserGesture();
+    void av
+      .then((s) => {
+        setSharedCameraStream(s, { stopPrevious: true });
+        setIsCameraReady(true);
+        setCameraError(null);
+      })
+      .catch((err) => {
+        console.warn('camera tap failed', err);
+        setIsCameraReady(false);
+        setCameraError(
+          err?.name === 'NotAllowedError'
+            ? 'Permiso denegado. Toca de nuevo y elige Permitir.'
+            : 'No se pudo abrir la cámara. Toca de nuevo.'
+        );
+      });
+  }, []);
+
   // Webcam surface: video + guides. Layout switching lives in the always-visible bar below.
   const renderWebcamSurface = (layout: CameraLayout) => {
     const isFloating = layout === 'pip';
@@ -565,11 +597,17 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
       <div
         className={`relative overflow-hidden bg-[#0a0a0a] flex items-center justify-center ${
           isFloating
-            ? 'w-full h-full rounded-md shadow-2xl border-2 border-white/50 touch-none'
+            ? 'w-full h-full rounded-md shadow-2xl border-2 border-white/50'
             : 'w-full h-full'
         }`}
         onPointerDown={(e) => {
           if (!isFloating) return;
+          // Si aún no hay cámara, este toque pide permiso (gesto iOS)
+          if (!isCameraReady) {
+            e.stopPropagation();
+            requestCameraFromTap();
+            return;
+          }
           e.stopPropagation();
           isDraggingRef.current = true;
           const rect = e.currentTarget.getBoundingClientRect();
@@ -592,7 +630,11 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
           if (!isFloating) return;
           e.stopPropagation();
           isDraggingRef.current = false;
-          e.currentTarget.releasePointerCapture(e.pointerId);
+          try {
+            e.currentTarget.releasePointerCapture(e.pointerId);
+          } catch {
+            // ignore
+          }
         }}
       >
         <video
@@ -607,7 +649,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
 
         {isBackground && <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" />}
 
-        {settings.cameraFramingGuides && !isBackground && (
+        {settings.cameraFramingGuides && !isBackground && isCameraReady && (
           <div className="absolute inset-0 pointer-events-none z-10">
             <div className="absolute inset-0 flex justify-between px-[33.3%]">
               <div className="w-[1px] h-full bg-white/20" />
@@ -621,6 +663,29 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
             </div>
             <div className="absolute top-[66.6%] left-0 right-0 border-t border-white/20" />
           </div>
+        )}
+
+        {/* CTA permiso: visible hasta que haya stream (obligatorio en iPhone) */}
+        {isCameraEnabled && !isCameraReady && (
+          <button
+            type="button"
+            className="absolute inset-0 z-40 bg-black/95 flex flex-col items-center justify-center gap-2 p-3 text-center active:scale-[0.98]"
+            onClick={(e) => {
+              e.stopPropagation();
+              requestCameraFromTap();
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <Camera className="w-8 h-8 text-white" />
+            <span className="text-[11px] font-bold text-white uppercase tracking-wide leading-tight">
+              Toca para permitir
+              <br />
+              cámara y micrófono
+            </span>
+            {cameraError && (
+              <span className="text-[9px] font-mono text-amber-300 mt-1">{cameraError}</span>
+            )}
+          </button>
         )}
 
         {/* Compact chrome only on desktop surfaces — mobile keeps video clean */}
@@ -699,13 +764,6 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
                 <span className="text-[7px] uppercase font-bold">Cerrar</span>
               </button>
             </div>
-          </div>
-        )}
-
-        {cameraError && (
-          <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-4 text-center text-white z-30">
-            <VideoOff className="w-8 h-8 text-amber-400 mb-2" />
-            <p className="text-[10px] font-mono text-[#AAA]">{cameraError}</p>
           </div>
         )}
       </div>
