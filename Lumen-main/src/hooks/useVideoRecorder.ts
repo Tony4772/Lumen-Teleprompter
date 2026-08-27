@@ -161,7 +161,7 @@ export const useVideoRecorder = ({
       const msg = String(err?.message || '');
       setRecorderError(
         err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError'
-          ? 'Permiso bloqueado. En el iPhone: Ajustes → Safari → Cámara y Micrófono en Permitir. Luego recarga esta página y toca Iniciar → Permitir.'
+          ? 'Toca Iniciar y elige Permitir cámara y micrófono cuando el teléfono lo pida.'
           : err?.name === 'NotReadableError' || err?.name === 'TrackStartError'
             ? 'La cámara o el micrófono están en uso por otra app. Ciérrala y vuelve a Iniciar.'
             : err?.name === 'OverconstrainedError'
@@ -169,7 +169,7 @@ export const useVideoRecorder = ({
               : err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError'
                 ? 'No se detectó cámara o micrófono en este dispositivo.'
                 : msg === 'NO_AUDIO'
-                  ? 'Sin micrófono. En Ajustes del sitio permite el micrófono y toca Iniciar.'
+                  ? 'Sin micrófono. Toca Iniciar y elige Permitir cuando el teléfono lo pida.'
                   : 'No se pudo abrir cámara y micrófono. Toca Iniciar otra vez.'
       );
       return false;

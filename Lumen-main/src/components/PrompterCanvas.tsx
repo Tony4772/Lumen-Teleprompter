@@ -152,7 +152,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
     const setupCamera = async () => {
       if (!isCameraEnabled) return;
 
-      // Si el grabador ya abrió un stream AV, reutilizarlo
+      // Si el grabador ya abrió un stream, reutilizarlo
       const existing = getSharedCameraStream();
       if (existing && existing.getVideoTracks().some((t) => t.readyState === 'live')) {
         stream = existing;
@@ -162,19 +162,22 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
         return;
       }
 
+      // Móvil: NUNCA pedir getUserMedia aquí (useEffect = sin gesto → NotAllowed
+      // para todos los usuarios). Solo esperar el stream de Iniciar.
+      if (isMobileDevice()) {
+        setIsCameraReady(false);
+        setCameraError(null);
+        return;
+      }
+
       try {
         setCameraError(null);
-        // Solicitar cámara y micrófono juntos para que iOS/Android registre ambos permisos en un solo toque
         try {
           stream = await navigator.mediaDevices.getUserMedia({
             video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
             audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
           });
         } catch {
-          // Escritorio: fallback video-only. Móvil: nunca video-only en el store (tomas mudas).
-          if (isMobileDevice()) {
-            throw new Error('NO_AV');
-          }
           stream = await navigator.mediaDevices.getUserMedia({
             video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
             audio: false,
@@ -186,7 +189,6 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
           return;
         }
 
-        // No pisar un AV ya abierto por Iniciar (carrera con getUserMedia del preview)
         const current = getSharedCameraStream();
         if (
           current &&
@@ -467,6 +469,23 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
     if (isTap) {
       const now = Date.now();
       const doubleTapDelay = 350;
+      const mobile = isMobileDevice();
+
+      // Móvil: play/pausa al instante. Un setTimeout rompe el gesto de Safari
+      // y getUserMedia falla con NotAllowedError para TODOS los usuarios (sin diálogo).
+      if (mobile) {
+        triggerHaptic(20);
+        onTogglePlay();
+        setTapFeedback({
+          x: touch.clientX,
+          y: touch.clientY,
+          type: playbackStatus === 'playing' ? 'pause' : 'play',
+        });
+        setTimeout(() => setTapFeedback(null), 600);
+        lastTapTimeRef.current = now;
+        touchStartRef.current = null;
+        return;
+      }
 
       if (now - lastTapTimeRef.current < doubleTapDelay) {
         // Double tap: Restart from top
@@ -681,7 +700,11 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      onClick={onTogglePlay}
+      onClick={() => {
+        // En móvil el touchend ya dispara play; el click sintético volvería a pausar.
+        if (isMobileDevice()) return;
+        onTogglePlay();
+      }}
       className={`w-full h-full overflow-y-auto no-scrollbar cursor-pointer z-10 relative ${
         isMirroredX && isMirroredY
           ? 'mirror-both'

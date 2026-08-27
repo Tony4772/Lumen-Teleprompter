@@ -1,6 +1,6 @@
 /**
  * Captura AV. Escritorio: sin cambios de comportamiento.
- * Móvil: SIEMPRE un solo getUserMedia({video,audio}) — nunca addTrack ni fallback sin mic.
+ * Móvil: UNA sola llamada getUserMedia en el gesto del usuario (Iniciar).
  */
 import {
   getSharedCameraStream,
@@ -99,38 +99,40 @@ function requestDesktopAvStream(): Promise<MediaStream> {
     });
 }
 
-/** Móvil: un solo AV. Sin addTrack. Sin fallback sin mic. */
+/**
+ * Móvil: exactamente UNA getUserMedia en este tick (gesto).
+ * Prohibido: .catch → otra getUserMedia (Safari ya no tiene gesto → NotAllowed falso).
+ */
 function requestMobileAvStream(): Promise<MediaStream> {
   if (!navigator.mediaDevices?.getUserMedia) {
     return Promise.reject(new Error('NO_MEDIA_DEVICES'));
   }
 
-  releaseSharedCameraStreamSync();
+  // Soltar preview previo en el mismo tick, antes del único getUserMedia.
+  const prev = getSharedCameraStream();
+  if (prev) {
+    releaseSharedCameraStreamSync();
+  }
 
-  return navigator.mediaDevices
-    .getUserMedia({ video: true, audio: true })
-    .catch(() =>
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true })
-    )
-    .then((stream) => {
-      stream.getTracks().forEach((t) => {
-        t.enabled = true;
-      });
-      if (!isLive(stream, 'video')) {
-        stream.getTracks().forEach((t) => t.stop());
-        throw new Error('NO_VIDEO');
-      }
-      if (!isLive(stream, 'audio')) {
-        stream.getTracks().forEach((t) => t.stop());
-        throw new Error('NO_AUDIO');
-      }
-      setSharedCameraStream(stream, { stopPrevious: true });
-      return stream;
+  return navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then((stream) => {
+    stream.getTracks().forEach((t) => {
+      t.enabled = true;
     });
+    if (!isLive(stream, 'video')) {
+      stream.getTracks().forEach((t) => t.stop());
+      throw new Error('NO_VIDEO');
+    }
+    if (!isLive(stream, 'audio')) {
+      stream.getTracks().forEach((t) => t.stop());
+      throw new Error('NO_AUDIO');
+    }
+    setSharedCameraStream(stream, { stopPrevious: true });
+    return stream;
+  });
 }
 
 /**
- * CRÍTICO: llamar de forma SÍNCRONA en el onClick (sin await antes).
+ * CRÍTICO: llamar de forma SÍNCRONA en el onClick / touchend (sin setTimeout ni await antes).
  */
 export function beginAvCaptureFromUserGesture(): Promise<MediaStream> {
   const existing = getReadyAvStream();
@@ -145,9 +147,6 @@ export function beginAvCaptureFromUserGesture(): Promise<MediaStream> {
     return Promise.reject(new Error('NO_MEDIA_DEVICES'));
   }
 
-  // ——— MÓVIL ———
-  // Nunca reutilizar preview video-only + addTrack(mic): en iOS/Android
-  // MediaRecorder graba el video y deja el audio vacío.
   if (isMobileDevice()) {
     return requestMobileAvStream();
   }

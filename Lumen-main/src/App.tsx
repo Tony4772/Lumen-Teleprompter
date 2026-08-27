@@ -718,20 +718,24 @@ export default function App() {
         onClose={() => setIsMobileMoreOpen(false)}
         isCameraActive={settings.cameraOverlay || mode === 'camera'}
         onToggleCamera={() => {
-          setSettings((s) => {
-            const turningOn = !s.cameraOverlay;
-            return {
-              ...s,
-              cameraOverlay: turningOn,
-              cameraLayout: turningOn ? 'pip' : s.cameraLayout,
-            };
-          });
-          if (!settings.cameraOverlay) {
-            setMobileScreen('prompter');
-            setMode('camera');
-          } else {
-            setMode('fullscreen');
+          const turningOn = !settings.cameraOverlay;
+          if (turningOn) {
+            // Pedir AV en el mismo toque (gesto), no en un useEffect después.
+            const avPromise = beginAvCaptureFromUserGesture();
+            void adoptAvPromise(avPromise).then((ok) => {
+              if (!ok) return;
+              setSettings((s) => ({
+                ...s,
+                cameraOverlay: true,
+                cameraLayout: 'pip',
+              }));
+              setMobileScreen('prompter');
+              setMode('camera');
+            });
+            return;
           }
+          setSettings((s) => ({ ...s, cameraOverlay: false }));
+          setMode('fullscreen');
         }}
         isMirrorActive={mode === 'mirror' || settings.mirrorX}
         onToggleMirror={() => {
