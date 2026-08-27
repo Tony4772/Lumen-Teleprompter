@@ -131,10 +131,10 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
               ? 'bg-white text-[#121212] shadow-xs border border-[#D6D2C4]'
               : 'text-[#666] hover:text-[#121212] hover:bg-white/50'
           }`}
-          title="Modo Estudio: Editor y Prompter en vista dividida"
+          title="Modo Estudio: Editor y Texto"
         >
           <Layers className="w-3.5 h-3.5 text-[#121212]" />
-          <span>Atelier Split</span>
+          <span>Estudio</span>
         </button>
 
         <button
@@ -144,10 +144,10 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
               ? 'bg-white text-[#121212] shadow-xs border border-[#D6D2C4]'
               : 'text-[#666] hover:text-[#121212] hover:bg-white/50'
           }`}
-          title="Modo Prompter: Pantalla limpia sin distracciones"
+          title="Modo Lectura: Concentración total"
         >
           <Tv className="w-3.5 h-3.5 text-[#121212]" />
-          <span>Prompter Pro</span>
+          <span>Lectura Pro</span>
         </button>
 
         <button
@@ -157,23 +157,26 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
               ? 'bg-white text-[#121212] shadow-xs border border-[#D6D2C4]'
               : 'text-[#666] hover:text-[#121212] hover:bg-white/50'
           }`}
-          title="Modo Cristal Espejo: Reflejo horizontal para teleprompter de hardware"
+          title="Modo Espejo: Para hardware de teleprompter"
         >
           <FlipHorizontal className="w-3.5 h-3.5 text-[#121212]" />
-          <span>Espejo Óptico</span>
+          <span>Espejo</span>
         </button>
 
         <button
-          onClick={() => onSetMode('camera')}
+          onClick={() => {
+            onSetMode('camera');
+            onUpdateSettings?.({ cameraOverlay: true, cameraLayout: 'side-by-side' });
+          }}
           className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] font-bold rounded-xs transition-all ${
             mode === 'camera'
               ? 'bg-white text-[#121212] shadow-xs border border-[#D6D2C4]'
               : 'text-[#666] hover:text-[#121212] hover:bg-white/50'
           }`}
-          title="Modo Cámara: Tu webcam en vivo al lado del teleprómpter"
+          title="Modo Cámara: Grabación con referencia visual"
         >
           <Camera className="w-3.5 h-3.5 text-[#121212]" />
-          <span>Cámara Split</span>
+          <span>Cámara</span>
         </button>
       </nav>
 

@@ -435,10 +435,11 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
 
           {/* New Clearly Labeled Control Group */}
           {onUpdateSettings && (
-            <div className="flex items-center gap-1 bg-black/80 backdrop-blur-xl border border-white/30 p-1 rounded-sm text-white shadow-2xl">
+            <div className="flex items-center gap-1 bg-black/90 backdrop-blur-2xl border border-white/40 p-1.5 rounded-sm text-white shadow-2xl z-50">
               {/* Swap Side (Only in split mode) */}
               {layout === 'side-by-side' && (
                 <button
+                  onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
                     triggerHaptic(10);
@@ -447,13 +448,14 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
                   className="flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xs hover:bg-white/20 transition-colors"
                   title="Mover al otro lado"
                 >
-                  <ArrowLeftRight className="w-3.5 h-3.5" />
-                  <span className="text-[7px] uppercase font-bold tracking-tighter">Lado</span>
+                  <ArrowLeftRight className="w-4 h-4" />
+                  <span className="text-[8px] uppercase font-bold tracking-tighter">Lado</span>
                 </button>
               )}
 
               {/* Toggle Guides */}
               <button
+                onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
                   triggerHaptic(10);
@@ -461,12 +463,13 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
                 }}
                 className={`flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xs transition-colors ${settings.cameraFramingGuides ? 'bg-amber-500 text-black' : 'hover:bg-white/20'}`}
               >
-                <Grid className="w-3.5 h-3.5" />
-                <span className="text-[7px] uppercase font-bold tracking-tighter">Guías</span>
+                <Grid className="w-4 h-4" />
+                <span className="text-[8px] uppercase font-bold tracking-tighter">Guías</span>
               </button>
 
               {/* Toggle Mirror */}
               <button
+                onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
                   triggerHaptic(10);
@@ -474,12 +477,13 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
                 }}
                 className={`flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xs transition-colors ${settings.cameraMirror !== false ? 'bg-white/30' : 'hover:bg-white/20'}`}
               >
-                <FlipHorizontal className="w-3.5 h-3.5" />
-                <span className="text-[7px] uppercase font-bold tracking-tighter">Espejo</span>
+                <FlipHorizontal className="w-4 h-4" />
+                <span className="text-[8px] uppercase font-bold tracking-tighter">Espejo</span>
               </button>
 
               {/* Cycle Layout */}
               <button
+                onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
                   triggerHaptic(10);
@@ -488,24 +492,25 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
                   const nextLayout = layouts[(currentIdx + 1) % layouts.length];
                   onUpdateSettings({ cameraLayout: nextLayout });
                 }}
-                className="flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xs hover:bg-white/20 transition-colors"
+                className={`flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xs hover:bg-white/20 transition-colors ${settings.cameraLayout !== 'side-by-side' ? 'text-amber-400' : ''}`}
               >
-                <Columns className="w-3.5 h-3.5" />
-                <span className="text-[7px] uppercase font-bold tracking-tighter">Diseño</span>
+                <Columns className="w-4 h-4" />
+                <span className="text-[8px] uppercase font-bold tracking-tighter">Diseño</span>
               </button>
 
               {/* Close Camera */}
               <button
+                onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
                   triggerHaptic(15);
                   onUpdateSettings({ cameraOverlay: false });
                   if (onSetMode) onSetMode('fullscreen');
                 }}
-                className="flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xs bg-red-600/80 hover:bg-red-600 transition-colors"
+                className="flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xs bg-red-600 hover:bg-red-500 transition-colors"
               >
-                <X className="w-3.5 h-3.5" />
-                <span className="text-[7px] uppercase font-bold tracking-tighter">Cerrar</span>
+                <X className="w-4 h-4" />
+                <span className="text-[8px] uppercase font-bold tracking-tighter">Cerrar</span>
               </button>
             </div>
           )}
