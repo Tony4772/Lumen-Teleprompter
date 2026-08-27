@@ -39,6 +39,8 @@ interface PrompterCanvasProps {
   isMirrorMode?: boolean;
   voiceMatchedWord?: string;
   voiceProgress?: number;
+  voiceWordIndex?: number;
+  speechTracking?: boolean;
   cameraActive?: boolean;
   isRecording?: boolean;
   recordingSeconds?: number;
@@ -59,6 +61,10 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
   onSwitchToEditor,
   onProgressUpdate,
   isMirrorMode = false,
+  voiceProgress = 0,
+  voiceWordIndex = 0,
+  voiceMatchedWord,
+  speechTracking = false,
   cameraActive = false,
   isRecording = false,
   recordingSeconds = 0,
@@ -173,13 +179,14 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
     return () => window.removeEventListener('resize', updateDimensions);
   }, [updateDimensions, parsedLines, settings.fontSize, settings.lineHeight, settings.cameraLayout, isCameraEnabled]);
 
-  // Continuous RAF animation loop for ultra-smooth scrolling
+  // Continuous RAF animation loop for ultra-smooth scrolling (WPM mode)
+  // Disabled while voice tracking drives the scroll to avoid fighting the mic.
   const lastTimeRef = useRef<number | null>(null);
   const scrollYRef = useRef(0);
   scrollYRef.current = scrollY;
 
   useEffect(() => {
-    if (playbackStatus !== 'playing') {
+    if (playbackStatus !== 'playing' || speechTracking) {
       lastTimeRef.current = null;
       return;
     }
@@ -190,9 +197,6 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
       if (lastTimeRef.current !== null) {
         const deltaSec = (time - lastTimeRef.current) / 1000;
 
-        // Calibrated scroll speed:
-        // Reading speed in words per second = settings.wpm / 60.
-        // Pixels per second = (wordsPerSec / 7.5) * (fontSize * lineHeight)
         const wordsPerSec = settings.wpm / 60;
         const avgWordsPerLine = 7.5;
         const lineHeightPx = settings.fontSize * settings.lineHeight;
@@ -205,7 +209,6 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
             containerRef.current.scrollHeight - containerRef.current.clientHeight;
 
           if (nextScroll >= maxContainerScroll && maxContainerScroll > 0) {
-            // Reached End of Script
             setScrollY(0);
             scrollYRef.current = 0;
             if (containerRef.current) {
@@ -235,7 +238,58 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [playbackStatus, settings.wpm, settings.fontSize, settings.lineHeight, onReachedEnd]);
+  }, [playbackStatus, speechTracking, settings.wpm, settings.fontSize, settings.lineHeight, onReachedEnd]);
+
+  // Voice-driven scroll: map recognized word index → line → reader-line position
+  const lastVoiceScrollIdxRef = useRef(-1);
+  useEffect(() => {
+    if (!speechTracking || !containerRef.current) return;
+    if (voiceWordIndex === lastVoiceScrollIdxRef.current) return;
+    lastVoiceScrollIdxRef.current = voiceWordIndex;
+
+    const container = containerRef.current;
+    const countLineWords = (text: string) =>
+      text
+        .replace(/\[.*?\]/g, ' ')
+        .replace(/[.,/#!$%^&*;:{}=\-_`~()?"'¡¿…]/g, ' ')
+        .split(/\s+/)
+        .filter(Boolean).length;
+
+    let wordsSeen = 0;
+    let targetEl: HTMLElement | null = null;
+
+    for (let i = 0; i < parsedLines.length; i++) {
+      const line = parsedLines[i];
+      if (line.type === 'cue' || !line.cleanText?.trim()) continue;
+      const lineWords = countLineWords(line.cleanText);
+      if (lineWords === 0) continue;
+      const lineEnd = wordsSeen + lineWords;
+      if (voiceWordIndex >= wordsSeen && voiceWordIndex < lineEnd) {
+        targetEl = container.querySelector(`[data-line-id="${line.id}"]`);
+        break;
+      }
+      wordsSeen = lineEnd;
+      targetEl = container.querySelector(`[data-line-id="${line.id}"]`);
+    }
+
+    if (!targetEl) {
+      const maxScrollable = Math.max(0, container.scrollHeight - container.clientHeight);
+      const target = voiceProgress * maxScrollable;
+      container.scrollTop = target;
+      setScrollY(target);
+      return;
+    }
+
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = targetEl.getBoundingClientRect();
+    const readerY = (container.clientHeight * settings.readerLinePosition) / 100;
+    const elementOffsetInContent =
+      targetRect.top - containerRect.top + container.scrollTop;
+    const nextScroll = Math.max(0, elementOffsetInContent - readerY + targetRect.height / 2);
+
+    container.scrollTop = nextScroll;
+    setScrollY(nextScroll);
+  }, [speechTracking, voiceWordIndex, voiceProgress, parsedLines, settings.readerLinePosition]);
 
   // Handle scroll and active line tracking
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {

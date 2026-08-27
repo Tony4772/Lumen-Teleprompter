@@ -345,6 +345,26 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
             </button>
           )}
 
+          {/* Voice follow — primary on mobile (header mic was hidden) */}
+          <button
+            onClick={() => {
+              triggerHaptic(15);
+              onToggleVoice();
+            }}
+            className={`h-10 px-3 rounded-full border flex items-center gap-1.5 font-mono text-[10px] font-bold transition-all shadow-2xs active:scale-95 relative ${
+              isVoiceActive
+                ? 'bg-emerald-500 text-black border-emerald-400'
+                : 'bg-white text-[#121212] border-[#E0DDD5] hover:border-[#121212]'
+            }`}
+            title={isVoiceActive ? 'Desactivar seguimiento por voz' : 'Seguir el texto con tu voz (Chrome/Edge)'}
+          >
+            <Mic className="w-3.5 h-3.5" />
+            <span>{isVoiceActive ? 'Voz ON' : 'Voz'}</span>
+            {isVoiceActive && (
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-black animate-pulse" />
+            )}
+          </button>
+
           {/* Camera quick toggle */}
           <button
             onClick={() => {

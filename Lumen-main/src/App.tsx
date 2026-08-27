@@ -129,16 +129,33 @@ export default function App() {
 
   // Speech Recognition Follower integration
   const [voiceProgressRatio, setVoiceProgressRatio] = useState<number>(0);
+  const [voiceWordIndex, setVoiceWordIndex] = useState<number>(0);
   const [lastVoiceWord, setLastVoiceWord] = useState<string>('');
 
-  const { isListening, resetVoiceTracking } = useSpeechFollower({
+  const handleVoiceProgress = useCallback((ratio: number, matchedWord: string, wordIndex: number) => {
+    setVoiceProgressRatio(ratio);
+    setLastVoiceWord(matchedWord);
+    setVoiceWordIndex(wordIndex);
+  }, []);
+
+  const { isListening, lastTranscript, error: voiceError, resetVoiceTracking } = useSpeechFollower({
     enabled: settings.speechTracking,
     scriptContent: activeScript?.content || '',
-    onMatchProgress: (ratio, matchedWord) => {
-      setVoiceProgressRatio(ratio);
-      setLastVoiceWord(matchedWord);
-    },
+    onMatchProgress: handleVoiceProgress,
   });
+
+  // When enabling voice tracking, pause WPM auto-scroll so the mic drives movement
+  useEffect(() => {
+    if (settings.speechTracking && playbackStatus === 'playing') {
+      setPlaybackStatus('paused');
+    }
+    if (!settings.speechTracking) {
+      resetVoiceTracking();
+      setVoiceProgressRatio(0);
+      setVoiceWordIndex(0);
+      setLastVoiceWord('');
+    }
+  }, [settings.speechTracking]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Video Recorder Hook
   const {
@@ -467,7 +484,10 @@ export default function App() {
             }}
             isMirrorMode={mode === 'mirror'}
             cameraActive={mode === 'camera' || settings.cameraOverlay}
+            speechTracking={settings.speechTracking}
             voiceProgress={voiceProgressRatio}
+            voiceWordIndex={voiceWordIndex}
+            voiceMatchedWord={lastVoiceWord}
             isRecording={isRecording}
             recordingSeconds={recordingSeconds}
             onToggleRecord={handleToggleRecord}
@@ -552,6 +572,27 @@ export default function App() {
         onOpenLibrary={() => setIsLibraryOpen(true)}
         onOpenDonation={() => setIsDonationOpen(true)}
       />
+
+      {/* Voice tracking feedback */}
+      {settings.speechTracking && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] pointer-events-none">
+          {voiceError ? (
+            <div className="px-4 py-2 rounded-full bg-red-600 text-white text-xs font-mono font-bold shadow-editorial text-center">
+              {voiceError}
+            </div>
+          ) : (
+            <div className="px-4 py-2 rounded-full bg-emerald-500/95 text-black text-[10px] font-mono font-bold shadow-editorial flex items-center gap-2 justify-center">
+              <span className={`w-2 h-2 rounded-full bg-black ${isListening ? 'animate-pulse' : 'opacity-40'}`} />
+              <span>{isListening ? 'Escuchando… lee el guión en voz alta' : 'Conectando micrófono…'}</span>
+              {lastTranscript ? (
+                <span className="opacity-70 font-normal normal-case max-w-[40vw] truncate">
+                  «{lastTranscript}»
+                </span>
+              ) : null}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Modals & Dialogs */}
       <RecordingModal

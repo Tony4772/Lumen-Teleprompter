@@ -271,19 +271,19 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
           )}
         </button>
 
-        {/* Voice Follow — tablet+ */}
+        {/* Voice Follow — always visible */}
         <button
           onClick={onToggleVoice}
-          className={`hidden sm:flex w-9 h-9 rounded-full border items-center justify-center transition-all relative ${
+          className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all relative shrink-0 ${
             isVoiceActive
-              ? 'bg-[#121212] text-white border-[#121212]'
+              ? 'bg-emerald-500 text-black border-emerald-400'
               : 'bg-white text-[#555] border-[#E0DDD5] hover:border-[#121212] hover:text-[#121212]'
           }`}
-          title={isVoiceActive ? 'Seguimiento por voz ACTIVO' : 'Activar seguimiento inteligente por voz'}
+          title={isVoiceActive ? 'Seguimiento por voz ACTIVO — el texto sigue tu habla' : 'Activar seguimiento por voz (Chrome/Edge + micrófono)'}
         >
           <Mic className="w-4 h-4" />
           {isVoiceActive && (
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-black rounded-full animate-pulse" />
           )}
         </button>
 
