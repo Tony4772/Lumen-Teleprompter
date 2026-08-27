@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { PrompterSettings, PlaybackStatus, CameraLayout } from '../types';
 import { parseScriptContent, ParsedLine, countLineScriptWords } from '../utils/prompterUtils';
 import { setSharedCameraStream, getSharedCameraStream, CAMERA_STREAM_EVENT } from '../utils/cameraStreamStore';
-import { isMobileDevice, beginAvCaptureFromUserGesture } from '../utils/recordingCapture';
 import { 
   Eye, 
   ArrowRight, 
@@ -30,7 +29,7 @@ interface PrompterCanvasProps {
   content: string;
   settings: PrompterSettings;
   playbackStatus: PlaybackStatus;
-  onTogglePlay: (prefetchedAv?: Promise<MediaStream>) => void;
+  onTogglePlay: () => void;
   onRestart?: () => void;
   onReachedEnd?: () => void;
   onUpdateSettings?: (newSettings: Partial<PrompterSettings>) => void;
@@ -129,38 +128,30 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
     let ownsStream = false;
 
     const attachToVideo = (s: MediaStream) => {
-      const tryAttach = (attempts = 0) => {
-        const el = videoRef.current;
-        if (!el) {
-          if (attempts < 30) {
-            requestAnimationFrame(() => tryAttach(attempts + 1));
-          }
-          return;
-        }
+      if (videoRef.current) {
         // En móviles, aislar solo pistas de video para el preview
-        // para que el OS no atenúe el micrófono de la grabación
+        // para que el OS (iOS CoreAudio / Android AudioFlinger) no atenúe el micrófono
         const videoTracks = s.getVideoTracks();
         if (videoTracks.length > 0) {
-          el.srcObject = new MediaStream(videoTracks);
+          videoRef.current.srcObject = new MediaStream(videoTracks);
         } else {
-          el.srcObject = s;
+          videoRef.current.srcObject = s;
         }
-        el.muted = true;
-        el.defaultMuted = true;
-        el.volume = 0;
-        el.playsInline = true;
-        el.setAttribute('playsinline', 'true');
-        el.setAttribute('muted', 'true');
-        el.play().catch(console.warn);
+        videoRef.current.muted = true;
+        videoRef.current.defaultMuted = true;
+        videoRef.current.volume = 0;
+        videoRef.current.playsInline = true;
+        videoRef.current.setAttribute('playsinline', 'true');
+        videoRef.current.setAttribute('muted', 'true');
+        videoRef.current.play().catch(console.warn);
         setIsCameraReady(true);
-        setCameraError(null);
-      };
-      tryAttach();
+      }
     };
 
     const setupCamera = async () => {
       if (!isCameraEnabled) return;
 
+      // Si el grabador ya abrió un stream AV, reutilizarlo
       const existing = getSharedCameraStream();
       if (existing && existing.getVideoTracks().some((t) => t.readyState === 'live')) {
         stream = existing;
@@ -170,45 +161,24 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
         return;
       }
 
-      // Móvil: no pedir permiso en useEffect (Safari lo bloquea sin toque).
-      // El botón "Permitir cámara" / primer toque dispara getUserMedia.
-      if (isMobileDevice()) {
-        setIsCameraReady(false);
-        setCameraError(null);
-        return;
-      }
-
       try {
         setCameraError(null);
+        // Solicitar cámara y micrófono juntos para que iOS/Android registre ambos permisos en un solo toque
         try {
           stream = await navigator.mediaDevices.getUserMedia({
             video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
             audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
           });
         } catch {
+          // Fallback: si el micrófono no está disponible o fue denegado, abrir solo cámara
           stream = await navigator.mediaDevices.getUserMedia({
             video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-            audio: true,
+            audio: false,
           });
         }
 
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-
-        const current = getSharedCameraStream();
-        if (
-          current &&
-          current !== stream &&
-          current.getVideoTracks().some((t) => t.readyState === 'live') &&
-          current.getAudioTracks().some((t) => t.readyState === 'live')
-        ) {
-          stream.getTracks().forEach((t) => t.stop());
-          stream = current;
-          ownsStream = false;
-          attachToVideo(current);
-          setCameraError(null);
           return;
         }
 
@@ -246,25 +216,12 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
     };
     window.addEventListener(CAMERA_STREAM_EVENT, onExternalStream);
 
-    // También mirar el store compartido: si el evento se perdió (Iniciar antes
-    // de montar el <video>), aquí se engancha el preview.
     const syncInterval = setInterval(() => {
-      if (!isCameraEnabled) return;
-      const shared = getSharedCameraStream();
-      const active =
-        shared && shared.getVideoTracks().some((t) => t.readyState === 'live')
-          ? shared
-          : stream;
-      if (!active || !videoRef.current) return;
-      stream = active;
-      ownsStream = false;
-      const vTracks = active.getVideoTracks();
-      const current = videoRef.current.srcObject as MediaStream | null;
-      if (
-        vTracks.length > 0 &&
-        (!current || current.getVideoTracks()[0] !== vTracks[0])
-      ) {
-        attachToVideo(active);
+      if (isCameraEnabled && stream && videoRef.current) {
+        const vTracks = stream.getVideoTracks();
+        if (vTracks.length > 0 && (!videoRef.current.srcObject || (videoRef.current.srcObject as MediaStream).getVideoTracks()[0] !== vTracks[0])) {
+          attachToVideo(stream);
+        }
       }
     }, 150);
 
@@ -272,6 +229,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
       cancelled = true;
       clearInterval(syncInterval);
       window.removeEventListener(CAMERA_STREAM_EVENT, onExternalStream);
+      // Solo detener tracks si este efecto los abrió (no los del grabador)
       if (ownsStream && stream) {
         stream.getTracks().forEach((t) => t.stop());
         if (getSharedCameraStream() === stream) {
@@ -489,27 +447,6 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
     if (isTap) {
       const now = Date.now();
       const doubleTapDelay = 350;
-      const mobile = isMobileDevice();
-
-      // Móvil: sin setTimeout (rompe el gesto de getUserMedia).
-      if (mobile) {
-        triggerHaptic(20);
-        if (playbackStatus !== 'playing' && playbackStatus !== 'countdown') {
-          const av = beginAvCaptureFromUserGesture();
-          onTogglePlay(av);
-        } else {
-          onTogglePlay();
-        }
-        setTapFeedback({
-          x: touch.clientX,
-          y: touch.clientY,
-          type: playbackStatus === 'playing' ? 'pause' : 'play',
-        });
-        setTimeout(() => setTapFeedback(null), 600);
-        lastTapTimeRef.current = now;
-        touchStartRef.current = null;
-        return;
-      }
 
       if (now - lastTapTimeRef.current < doubleTapDelay) {
         // Double tap: Restart from top
@@ -563,31 +500,6 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
     { id: 'background', label: 'Fondo', hint: 'Detrás del texto', icon: <ImageIcon className="w-3.5 h-3.5" /> },
   ];
 
-  const requestCameraFromTap = useCallback(() => {
-    const existing = getSharedCameraStream();
-    if (existing && existing.getVideoTracks().some((t) => t.readyState === 'live')) {
-      setIsCameraReady(true);
-      setCameraError(null);
-      return;
-    }
-    const av = beginAvCaptureFromUserGesture();
-    void av
-      .then((s) => {
-        setSharedCameraStream(s, { stopPrevious: true });
-        setIsCameraReady(true);
-        setCameraError(null);
-      })
-      .catch((err) => {
-        console.warn('camera tap failed', err);
-        setIsCameraReady(false);
-        setCameraError(
-          err?.name === 'NotAllowedError'
-            ? 'Permiso denegado. Toca de nuevo y elige Permitir.'
-            : 'No se pudo abrir la cámara. Toca de nuevo.'
-        );
-      });
-  }, []);
-
   // Webcam surface: video + guides. Layout switching lives in the always-visible bar below.
   const renderWebcamSurface = (layout: CameraLayout) => {
     const isFloating = layout === 'pip';
@@ -597,17 +509,11 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
       <div
         className={`relative overflow-hidden bg-[#0a0a0a] flex items-center justify-center ${
           isFloating
-            ? 'w-full h-full rounded-md shadow-2xl border-2 border-white/50'
+            ? 'w-full h-full rounded-md shadow-2xl border-2 border-white/50 touch-none'
             : 'w-full h-full'
         }`}
         onPointerDown={(e) => {
           if (!isFloating) return;
-          // Si aún no hay cámara, este toque pide permiso (gesto iOS)
-          if (!isCameraReady) {
-            e.stopPropagation();
-            requestCameraFromTap();
-            return;
-          }
           e.stopPropagation();
           isDraggingRef.current = true;
           const rect = e.currentTarget.getBoundingClientRect();
@@ -630,11 +536,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
           if (!isFloating) return;
           e.stopPropagation();
           isDraggingRef.current = false;
-          try {
-            e.currentTarget.releasePointerCapture(e.pointerId);
-          } catch {
-            // ignore
-          }
+          e.currentTarget.releasePointerCapture(e.pointerId);
         }}
       >
         <video
@@ -649,7 +551,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
 
         {isBackground && <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" />}
 
-        {settings.cameraFramingGuides && !isBackground && isCameraReady && (
+        {settings.cameraFramingGuides && !isBackground && (
           <div className="absolute inset-0 pointer-events-none z-10">
             <div className="absolute inset-0 flex justify-between px-[33.3%]">
               <div className="w-[1px] h-full bg-white/20" />
@@ -663,29 +565,6 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
             </div>
             <div className="absolute top-[66.6%] left-0 right-0 border-t border-white/20" />
           </div>
-        )}
-
-        {/* CTA permiso: visible hasta que haya stream (obligatorio en iPhone) */}
-        {isCameraEnabled && !isCameraReady && (
-          <button
-            type="button"
-            className="absolute inset-0 z-40 bg-black/95 flex flex-col items-center justify-center gap-2 p-3 text-center active:scale-[0.98]"
-            onClick={(e) => {
-              e.stopPropagation();
-              requestCameraFromTap();
-            }}
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            <Camera className="w-8 h-8 text-white" />
-            <span className="text-[11px] font-bold text-white uppercase tracking-wide leading-tight">
-              Toca para permitir
-              <br />
-              cámara y micrófono
-            </span>
-            {cameraError && (
-              <span className="text-[9px] font-mono text-amber-300 mt-1">{cameraError}</span>
-            )}
-          </button>
         )}
 
         {/* Compact chrome only on desktop surfaces — mobile keeps video clean */}
@@ -764,6 +643,13 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
                 <span className="text-[7px] uppercase font-bold">Cerrar</span>
               </button>
             </div>
+          </div>
+        )}
+
+        {cameraError && (
+          <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-4 text-center text-white z-30">
+            <VideoOff className="w-8 h-8 text-amber-400 mb-2" />
+            <p className="text-[10px] font-mono text-[#AAA]">{cameraError}</p>
           </div>
         )}
       </div>
