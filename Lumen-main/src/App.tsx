@@ -23,7 +23,6 @@ import { useSpeechFollower } from './hooks/useSpeechFollower';
 import { useVideoRecorder } from './hooks/useVideoRecorder';
 import { countWords, estimateDurationSeconds } from './utils/prompterUtils';
 import { AudioRehearsalEngine } from './utils/speechSynthesis';
-import { isMobileRecordingDevice } from './utils/recordingCapture';
 import { Play, Pause } from 'lucide-react';
 
 const STORAGE_KEY_SCRIPTS = 'lumen_teleprompter_scripts_v1';
@@ -245,30 +244,16 @@ export default function App() {
     return () => clearCountdown();
   }, [clearCountdown]);
 
-  /** Enciende cámara (si hace falta), graba y pone el texto en marcha. */
+  /** Tras prepare: solo arranca MediaRecorder (el AV ya está abierto). */
   const beginPlayAndRecord = useCallback(async () => {
     if (!settings.cameraOverlay && mode !== 'camera') {
       setSettings((prev) => ({ ...prev, cameraOverlay: true }));
     }
-    // Dar tiempo a que el preview abra la cámara en Chrome
-    if (isMobileRecordingDevice()) {
-      await new Promise((r) => setTimeout(r, 400));
-    } else if (!settings.cameraOverlay && mode !== 'camera') {
-      await new Promise((r) => setTimeout(r, 800));
-    }
 
-    const started = await startRecording(undefined, {
-      videoOnly: false,
-    });
-
-    setPlaybackStatus('playing');
-
-    if (!started) {
-      console.warn('Grabación no iniciada');
-    }
+    const started = await startRecording(undefined, { videoOnly: false });
+    setPlaybackStatus(started ? 'playing' : 'paused');
   }, [settings.cameraOverlay, mode, startRecording]);
 
-  // One button: play scroll + record camera (with optional countdown from idle)
   const handleTogglePlay = useCallback(() => {
     if (playbackStatus === 'countdown') {
       clearCountdown();
@@ -287,14 +272,19 @@ export default function App() {
     }
 
     const runStartFlow = async () => {
-      // Móvil: preparar mic/AV en el gesto; nunca abortar por cartel de permisos
-      if (isMobileRecordingDevice()) {
-        await prepareMicForRecording();
+      // En TODOS los dispositivos: cámara+mic en el mismo toque (gesto).
+      // Sin esto, tras la cuenta regresiva el navegador bloquea permisos.
+      const ready = await prepareMicForRecording();
+      if (!ready) {
+        setPlaybackStatus('idle');
+        return;
       }
 
-      if (!settings.cameraOverlay && mode !== 'camera') {
-        setSettings((prev) => ({ ...prev, cameraOverlay: true }));
-      }
+      setSettings((prev) => ({
+        ...prev,
+        cameraOverlay: true,
+        cameraLayout: prev.cameraLayout || 'pip',
+      }));
 
       if (settings.countdownSeconds > 0 && playbackStatus === 'idle') {
         clearCountdown();
@@ -320,8 +310,6 @@ export default function App() {
   }, [
     playbackStatus,
     settings.countdownSeconds,
-    settings.cameraOverlay,
-    mode,
     clearCountdown,
     prepareMicForRecording,
     beginPlayAndRecord,
