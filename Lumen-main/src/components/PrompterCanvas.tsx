@@ -170,16 +170,9 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
         return;
       }
 
-      // Móvil: no pedir getUserMedia aquí. Sin gesto = NotAllowed y rompe Iniciar.
-      // El preview se enciende cuando Iniciar abre el stream compartido.
-      if (isMobileDevice()) {
-        setIsCameraReady(false);
-        setCameraError(null);
-        return;
-      }
-
       try {
         setCameraError(null);
+        // Pedir cámara + mic al abrir (comportamiento original).
         try {
           stream = await navigator.mediaDevices.getUserMedia({
             video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
@@ -188,7 +181,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
         } catch {
           stream = await navigator.mediaDevices.getUserMedia({
             video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-            audio: false,
+            audio: true,
           });
         }
 
@@ -229,7 +222,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
           setCameraError(null);
           return;
         }
-        setCameraError('No se pudo acceder a la cámara.');
+        setCameraError('Toca Lectura o Iniciar para permitir la cámara.');
       }
     };
 

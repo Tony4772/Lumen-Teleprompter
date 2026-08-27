@@ -42,7 +42,7 @@ const DEFAULT_SETTINGS: PrompterSettings = {
   readerLinePosition: 35,
   readerLineColor: '#00d1ff',
   countdownSeconds: 5,
-  cameraOverlay: false,
+  cameraOverlay: true,
   cameraLayout: 'pip',
   cameraPosition: 'left',
   cameraMirror: true,
@@ -85,14 +85,8 @@ export default function App() {
         // Nunca auto-activar voz al cargar: en móvil el ASR sin gesto del usuario
         // dispara "not-allowed" y muestra el error rojo.
         loaded.speechTracking = false;
-        // Móvil: no restaurar cámara encendida (getUserMedia sin toque = NotAllowed).
-        if (
-          typeof navigator !== 'undefined' &&
-          (/iPad|iPhone|iPod|Android/i.test(navigator.userAgent) ||
-            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
-        ) {
-          loaded.cameraOverlay = false;
-        }
+        // Al abrir: cámara siempre activa para pedir permiso (como antes).
+        loaded.cameraOverlay = true;
         return loaded;
       }
     } catch (e) {
@@ -103,7 +97,7 @@ export default function App() {
 
   // Active Modes & Status
   const [mode, setMode] = useState<PrompterMode>('studio');
-  const [mobileScreen, setMobileScreen] = useState<'editor' | 'prompter' | 'library'>('editor');
+  const [mobileScreen, setMobileScreen] = useState<'editor' | 'prompter' | 'library'>('prompter');
   const [playbackStatus, setPlaybackStatus] = useState<PlaybackStatus>('idle');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -750,7 +744,19 @@ export default function App() {
         <MobileBottomNav
           currentScreen={mobileScreen}
           mode={mode}
-          onSetScreen={(s) => setMobileScreen(s)}
+          onSetScreen={(s) => {
+            if (s === 'prompter') {
+              // Toque Lectura = gesto válido para pedir cámara/mic
+              const av = beginAvCaptureFromUserGesture();
+              void adoptAvPromise(av);
+              setSettings((prev) => ({
+                ...prev,
+                cameraOverlay: true,
+                cameraLayout: prev.cameraLayout || 'pip',
+              }));
+            }
+            setMobileScreen(s);
+          }}
           onSetMode={(m) => setMode(m)}
           onOpenMore={() => setIsMobileMoreOpen(true)}
           isMoreOpen={isMobileMoreOpen}
