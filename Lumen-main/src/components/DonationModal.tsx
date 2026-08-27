@@ -27,6 +27,30 @@ interface DonationModalProps {
 
 const PRESET_AMOUNTS = [1, 5, 10, 20, 50, 100];
 
+async function readApiJson(res: Response): Promise<any> {
+  const text = await res.text();
+  if (!text) {
+    throw new Error(
+      res.ok
+        ? 'El servidor respondió vacío.'
+        : 'No hay API de donaciones. Ejecuta la app con npm run dev (puerto 3000), no solo el frontend.'
+    );
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    const snippet = text.replace(/\s+/g, ' ').slice(0, 80);
+    if (/page could not be found|Cannot GET|Cannot POST|<!DOCTYPE/i.test(text)) {
+      throw new Error(
+        'No se encontró la API (/api/culqi). Arranca el servidor con npm run dev en Lumen-main (http://localhost:3000).'
+      );
+    }
+    throw new Error(
+      `Respuesta inválida del servidor (${res.status}): ${snippet}`
+    );
+  }
+}
+
 export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose }) => {
   const [amount, setAmount] = useState<number>(10);
   const [customAmount, setCustomAmount] = useState<string>('10');
@@ -72,7 +96,7 @@ export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose })
             }),
           });
 
-          const data = await res.json();
+          const data = await readApiJson(res);
           if (!res.ok) {
             throw new Error(data.error || 'Error al procesar el pago con tarjeta');
           }
@@ -139,19 +163,33 @@ export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose })
     try {
       setIsLoading(true);
 
-      // Fetch public config
-      const configRes = await fetch('/api/culqi/config');
-      const config = await configRes.json();
-      const publicKey = config.publicKey || 'pk_live_U6Rxa1sMaLcZKpcA';
+      // Verify backend is reachable
+      const healthRes = await fetch('/api/health');
+      if (!healthRes.ok) {
+        throw new Error(
+          'El servidor de Lumen no responde. Ejecuta npm run dev dentro de Lumen-main.'
+        );
+      }
 
-      // Verify Culqi JS is available
+      const configRes = await fetch('/api/culqi/config');
+      const config = await readApiJson(configRes);
+      if (!configRes.ok || !config.publicKey) {
+        throw new Error(
+          config.error ||
+            'Culqi no está configurado. Agrega CULQI_PUBLIC_KEY y CULQI_SECRET_KEY en el archivo .env'
+        );
+      }
+      const publicKey = config.publicKey as string;
+
       if (!window.Culqi) {
-        // Attempt dynamic load
         const script = document.createElement('script');
         script.src = 'https://checkout.culqi.com/js/v4';
         script.async = true;
         document.body.appendChild(script);
-        await new Promise((resolve) => (script.onload = resolve));
+        await new Promise((resolve, reject) => {
+          script.onload = () => resolve(null);
+          script.onerror = () => reject(new Error('No se pudo cargar el script de Culqi.'));
+        });
       }
 
       if (!window.Culqi) {
@@ -161,7 +199,6 @@ export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose })
       const Culqi = window.Culqi;
       Culqi.publicKey = publicKey;
 
-      // Create Order on backend for multi-payment (Yape + Cards)
       const orderRes = await fetch('/api/culqi/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -175,28 +212,30 @@ export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose })
         }),
       });
 
-      const orderData = await orderRes.json();
-
+      const orderData = await readApiJson(orderRes);
       const amountInCents = Math.round(currentAmount * 100);
+      const hasOrder = orderRes.ok && Boolean(orderData.orderId);
 
-      // Configure Culqi Settings
+      if (!hasOrder) {
+        console.warn('Culqi order failed, opening card-only checkout:', orderData);
+      }
+
       Culqi.settings({
         title: 'EBYZOM E.I.R.L.',
         currency: 'PEN',
         amount: amountInCents,
-        order: orderRes.ok && orderData.orderId ? orderData.orderId : undefined,
+        ...(hasOrder ? { order: orderData.orderId } : {}),
       });
 
-      // Configure Culqi Options
       Culqi.options({
         lang: 'es',
         installments: false,
         paymentMethods: {
           tarjeta: true,
-          yape: true,
-          billetera: true,
-          bancaMovil: true,
-          agente: true,
+          yape: hasOrder,
+          billetera: hasOrder,
+          bancaMovil: hasOrder,
+          agente: hasOrder,
         },
         style: {
           bannerColor: '#121212',
@@ -207,7 +246,12 @@ export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose })
         },
       });
 
-      // Open Culqi Checkout
+      if (!hasOrder && orderData.error) {
+        setErrorMessage(
+          `${orderData.error} Se abrirá Culqi solo con tarjeta. Para Yape, revisa tus claves Culqi en .env`
+        );
+      }
+
       Culqi.open();
     } catch (err: any) {
       console.error('Error starting Culqi checkout:', err);
