@@ -248,14 +248,10 @@ export const useVideoRecorder = ({
             return;
           }
 
-          const finalMime = (
-            recorder.mimeType ||
-            mimeType ||
-            chunks[0]?.type ||
-            'video/mp4'
-          ).split(';')[0];
+          const rawMime = recorder.mimeType || mimeType || chunks[0]?.type || 'video/mp4';
+          const finalMime = rawMime.split(';')[0];
           const blob = new Blob(chunks, { type: finalMime });
-          if (blob.size < 1000) {
+          if (blob.size < 50) {
             setRecorderError('La toma quedó vacía. Graba un poco más y pausa.');
             setIsRecording(false);
             return;
@@ -289,8 +285,15 @@ export const useVideoRecorder = ({
         };
 
         recorder.onstop = () => {
-          // Breve delay para garantizar que el último chunk esté procesado
-          window.setTimeout(finalizeTake, 80);
+          // En móviles (iOS/Android), esperar a que el encoder vuelque el último fragmento de datos
+          const checkAndFinalize = (attempts = 0) => {
+            if (recordedChunksRef.current.length > 0 || attempts >= 8) {
+              finalizeTake();
+            } else {
+              window.setTimeout(() => checkAndFinalize(attempts + 1), 75);
+            }
+          };
+          window.setTimeout(() => checkAndFinalize(0), 100);
         };
 
         // En iOS Safari, no usar timeslice para evitar pérdida de paquetes de audio en WebKit
@@ -332,13 +335,6 @@ export const useVideoRecorder = ({
     const recorder = mediaRecorderRef.current;
     if (recorder && recorder.state !== 'inactive') {
       try {
-        if (recorder.state === 'recording') {
-          try {
-            recorder.requestData();
-          } catch {
-            // ignore
-          }
-        }
         recorder.stop();
       } catch (e) {
         console.warn('stopRecording:', e);
