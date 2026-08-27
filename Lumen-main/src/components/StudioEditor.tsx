@@ -13,7 +13,8 @@ import {
   FolderOpen,
   Volume2,
   Type,
-  ArrowRight
+  ArrowRight,
+  Heart
 } from 'lucide-react';
 import { Script } from '../types';
 import { countWords, estimateDurationSeconds, formatTime } from '../utils/prompterUtils';
@@ -30,6 +31,7 @@ interface StudioEditorProps {
   onOpenAIModal: () => void;
   onInsertCue: (cueTag: string) => void;
   onLaunchPrompter?: () => void;
+  onOpenDonation?: () => void;
 }
 
 const COMMON_CUES = [
@@ -51,6 +53,7 @@ export const StudioEditor: React.FC<StudioEditorProps> = ({
   onCloneScript,
   onOpenAIModal,
   onLaunchPrompter,
+  onOpenDonation,
 }) => {
   const activeScript = scripts.find((s) => s.id === activeScriptId) || scripts[0];
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -339,6 +342,19 @@ Usa corchetes para agregar anotaciones escénicas, como [PAUSA 2s] o [MIRAR A C�
           <span className="font-semibold text-[#121212]">© EBYZOM E.I.R.L.</span>
           <span className="text-[#AAA]">•</span>
           <span className="hidden sm:inline">Todos los derechos reservados</span>
+
+          {onOpenDonation && (
+            <>
+              <span className="text-[#AAA]">•</span>
+              <button
+                onClick={onOpenDonation}
+                className="text-red-600 font-bold hover:underline flex items-center gap-1"
+              >
+                <Heart className="w-2.5 h-2.5 fill-current" />
+                Apoyar Proyecto
+              </button>
+            </>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <span className="hidden md:inline text-[#888]">Etiquetas [CUE] formateadas</span>

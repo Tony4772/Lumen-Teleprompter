@@ -397,6 +397,7 @@ export default function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenShortcuts={() => setIsShortcutsOpen(true)}
         onOpenLibrary={() => setIsLibraryOpen(true)}
+        onOpenDonation={() => setIsDonationOpen(true)}
         onToggleAudioRehearsal={handleToggleAudioRehearsal}
         isAudioRehearsing={isAudioRehearsing}
         activeScriptTitle={activeScript?.title || 'Sin Título'}
@@ -431,6 +432,7 @@ export default function App() {
                 setMobileScreen('prompter');
                 setMode('fullscreen');
               }}
+              onOpenDonation={() => setIsDonationOpen(true)}
             />
           </aside>
         )}
@@ -557,11 +559,17 @@ export default function App() {
         onClose={() => setIsSettingsOpen(false)}
         settings={settings}
         onUpdateSettings={handleUpdateSettings}
+        onOpenDonation={() => setIsDonationOpen(true)}
       />
 
       <ShortcutsModal
         isOpen={isShortcutsOpen}
         onClose={() => setIsShortcutsOpen(false)}
+      />
+
+      <DonationModal
+        isOpen={isDonationOpen}
+        onClose={() => setIsDonationOpen(false)}
       />
 
       <AIAssistantModal
@@ -591,6 +599,7 @@ export default function App() {
           setActiveScriptId(newScript.id);
           setMobileScreen('editor');
         }}
+        onOpenDonation={() => setIsDonationOpen(true)}
       />
     </div>
   );

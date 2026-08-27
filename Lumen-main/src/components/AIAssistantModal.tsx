@@ -11,7 +11,8 @@ import {
   Loader2,
   FileText,
   RotateCcw,
-  Plus
+  Plus,
+  Heart
 } from 'lucide-react';
 import { Script } from '../types';
 
@@ -21,6 +22,7 @@ interface AIAssistantModalProps {
   currentScriptContent: string;
   onApplyScript: (newContent: string, newTitle?: string) => void;
   onCreateNewScriptWithContent: (title: string, content: string) => void;
+  onOpenDonation?: () => void;
 }
 
 type TabType = 'generate' | 'enhance' | 'translate';
@@ -31,6 +33,7 @@ export const AIAssistantModal: React.FC<AIAssistantModalProps> = ({
   currentScriptContent,
   onApplyScript,
   onCreateNewScriptWithContent,
+  onOpenDonation,
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('generate');
 
@@ -202,6 +205,21 @@ export const AIAssistantModal: React.FC<AIAssistantModalProps> = ({
             <X className="w-4 h-4" />
           </button>
         </div>
+
+        {onOpenDonation && (
+          <div className="px-6 py-2 bg-red-50 border-b border-red-100 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-[10px] font-mono text-red-800">
+              <Heart className="w-3 h-3 fill-current animate-pulse" />
+              <span>Lumen Studio es gratuito. Apoya el proyecto con una donación voluntaria.</span>
+            </div>
+            <button
+              onClick={onOpenDonation}
+              className="text-[10px] font-bold uppercase tracking-widest text-red-600 hover:underline"
+            >
+              Donar S/ 1+
+            </button>
+          </div>
+        )}
 
         {/* Tab Selector (Editorial style) */}
         <div className="px-6 pt-3 bg-[#EFECE6] border-b border-[#E0DDD5] flex gap-3">
