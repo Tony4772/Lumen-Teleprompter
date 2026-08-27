@@ -14,7 +14,8 @@ import {
   Columns,
   Grid,
   ArrowLeftRight,
-  Heart
+  Heart,
+  BookOpen
 } from 'lucide-react';
 import { PrompterSettings, ReaderLineStyle, CameraLayout, CameraPosition } from '../types';
 
@@ -24,6 +25,7 @@ interface SettingsModalProps {
   settings: PrompterSettings;
   onUpdateSettings: (newSettings: Partial<PrompterSettings>) => void;
   onOpenDonation?: () => void;
+  onOpenManual?: () => void;
 }
 
 const COLOR_PRESETS = [
@@ -40,6 +42,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   settings,
   onUpdateSettings,
   onOpenDonation,
+  onOpenManual,
 }) => {
   if (!isOpen) return null;
 
@@ -494,10 +497,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Footer */}
         <div className="px-6 py-4 bg-[#F4F1EA] border-t border-[#E0DDD5] flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="text-[11px] font-mono text-[#666] text-center sm:text-left">
-            <span className="font-bold text-[#121212]">© EBYZOM E.I.R.L.</span>
-            <span className="mx-1.5">•</span>
-            <span>Todos los derechos reservados</span>
+          <div className="flex items-center gap-3">
+            <div className="text-[11px] font-mono text-[#666] text-center sm:text-left">
+              <span className="font-bold text-[#121212]">© EBYZOM E.I.R.L.</span>
+              <span className="mx-1.5">•</span>
+              <span>v1.0.0</span>
+            </div>
+
+            {onOpenManual && (
+              <button
+                onClick={onOpenManual}
+                className="flex items-center gap-1 text-[11px] font-bold text-[#121212] hover:underline"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Manual de Uso</span>
+              </button>
+            )}
           </div>
           <button
             onClick={onClose}

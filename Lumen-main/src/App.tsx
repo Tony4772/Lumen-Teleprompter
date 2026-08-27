@@ -16,6 +16,7 @@ import { AIAssistantModal } from './components/AIAssistantModal';
 import { ScriptsLibraryModal } from './components/ScriptsLibraryModal';
 import { RecordingModal } from './components/RecordingModal';
 import { DonationModal } from './components/DonationModal';
+import { UserManualModal } from './components/UserManualModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { useSpeechFollower } from './hooks/useSpeechFollower';
 import { useVideoRecorder } from './hooks/useVideoRecorder';
@@ -102,6 +103,7 @@ export default function App() {
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isRecordingModalOpen, setIsRecordingModalOpen] = useState(false);
   const [isDonationOpen, setIsDonationOpen] = useState(false);
+  const [isManualOpen, setIsManualOpen] = useState(false);
 
   // Save scripts to localStorage
   useEffect(() => {
@@ -396,6 +398,7 @@ export default function App() {
         onOpenAIModal={() => setIsAIOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenShortcuts={() => setIsShortcutsOpen(true)}
+        onOpenManual={() => setIsManualOpen(true)}
         onOpenLibrary={() => setIsLibraryOpen(true)}
         onOpenDonation={() => setIsDonationOpen(true)}
         onToggleAudioRehearsal={handleToggleAudioRehearsal}
@@ -449,6 +452,7 @@ export default function App() {
             onRestart={handleRestart}
             onReachedEnd={handleRestart}
             onUpdateSettings={handleUpdateSettings}
+            onSetMode={setMode}
             onSwitchToEditor={() => {
               setMobileScreen('editor');
               setMode('studio');
@@ -560,6 +564,7 @@ export default function App() {
         settings={settings}
         onUpdateSettings={handleUpdateSettings}
         onOpenDonation={() => setIsDonationOpen(true)}
+        onOpenManual={() => setIsManualOpen(true)}
       />
 
       <ShortcutsModal
@@ -570,6 +575,11 @@ export default function App() {
       <DonationModal
         isOpen={isDonationOpen}
         onClose={() => setIsDonationOpen(false)}
+      />
+
+      <UserManualModal
+        isOpen={isManualOpen}
+        onClose={() => setIsManualOpen(false)}
       />
 
       <AIAssistantModal

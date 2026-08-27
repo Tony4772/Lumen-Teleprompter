@@ -30,6 +30,7 @@ interface PrompterCanvasProps {
   onRestart?: () => void;
   onReachedEnd?: () => void;
   onUpdateSettings?: (newSettings: Partial<PrompterSettings>) => void;
+  onSetMode?: (mode: any) => void;
   onSwitchToEditor?: () => void;
   onProgressUpdate?: (progress: number, elapsedSeconds: number) => void;
   onScrollToTop?: () => void;
@@ -52,6 +53,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
   onRestart,
   onReachedEnd,
   onUpdateSettings,
+  onSetMode,
   onSwitchToEditor,
   onProgressUpdate,
   isMirrorMode = false,
@@ -63,6 +65,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
   takesCount = 0,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const mainContainerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   
@@ -369,11 +372,14 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
         e.currentTarget.setPointerCapture(e.pointerId);
       }}
       onPointerMove={(e) => {
-        if (!isFloating || !isDraggingRef.current) return;
+        if (!isFloating || !isDraggingRef.current || !mainContainerRef.current) return;
         e.stopPropagation();
+
+        const canvasRect = mainContainerRef.current.getBoundingClientRect();
+
         setPipPosition({
-          x: e.clientX - dragOffsetRef.current.x,
-          y: e.clientY - dragOffsetRef.current.y,
+          x: e.clientX - canvasRect.left - dragOffsetRef.current.x,
+          y: e.clientY - canvasRect.top - dragOffsetRef.current.y,
         });
       }}
       onPointerUp={(e) => {
@@ -527,8 +533,10 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
                 const nextLayout = layouts[(currentIdx + 1) % layouts.length];
                 onUpdateSettings({ cameraLayout: nextLayout });
               }}
-              className="p-1 rounded-full hover:bg-white/20 text-white transition-colors"
-              title={`Disposición actual: ${settings.cameraLayout}. Clic para alternar.`}
+              className={`p-1 rounded-full transition-colors ${
+                settings.cameraLayout !== 'side-by-side' ? 'bg-amber-400 text-black' : 'hover:bg-white/20 text-white'
+              }`}
+              title={`Cambiar diseño: ${settings.cameraLayout}. Clic para alternar entre Dividido, Flotante o Fondo.`}
             >
               <Columns className="w-3.5 h-3.5" />
             </button>
@@ -539,9 +547,10 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
                 e.stopPropagation();
                 triggerHaptic(15);
                 onUpdateSettings({ cameraOverlay: false });
+                if (onSetMode) onSetMode('fullscreen');
               }}
               className="p-1 rounded-full hover:bg-red-500/30 text-white hover:text-red-400 transition-colors"
-              title="Desactivar cámara"
+              title="Cerrar cámara y volver a pantalla completa"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -549,14 +558,14 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
         )}
       </div>
 
-      {/* Bottom Info Pill */}
+      {/* Bottom Info Pill - More descriptive */}
       <div className="absolute bottom-2.5 left-2.5 right-2.5 z-20 flex justify-center pointer-events-none">
-        <span className="text-[9px] font-mono text-white/80 bg-black/60 backdrop-blur-xs px-2.5 py-0.5 rounded-full border border-white/10">
+        <span className="text-[10px] font-mono font-bold text-white bg-black/80 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 shadow-lg">
           {settings.cameraLayout === 'side-by-side' 
-            ? 'Vista Dividida: Cámara al lado del Teleprómpter'
+            ? 'VISTA DIVIDIDA'
             : settings.cameraLayout === 'pip'
-            ? 'Ventana Flotante (PiP)'
-            : 'Fondo Translúcido'}
+            ? 'VENTANA FLOTANTE (ARRASTRABLE)'
+            : 'CÁMARA DE FONDO'}
         </span>
       </div>
 
@@ -662,6 +671,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
 
   return (
     <div 
+      ref={mainContainerRef}
       className="relative w-full h-full overflow-hidden flex flex-col justify-center items-center select-none touch-manipulation"
       style={{ backgroundColor: settings.bgColor || '#000000' }}
       onTouchStart={handleTouchStart}
@@ -683,6 +693,17 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
             }`}
           />
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" />
+
+          {/* Framing Guides for Background mode too */}
+          {settings.cameraFramingGuides && (
+            <div className="absolute inset-0 pointer-events-none z-10 flex flex-col justify-between">
+              <div className="absolute inset-0 flex justify-between px-[33.3%] pointer-events-none">
+                <div className="w-[1px] h-full bg-white/10 border-r border-white/5" />
+                <div className="w-[1px] h-full bg-white/10 border-r border-white/5" />
+              </div>
+              <div className="absolute top-[32%] left-0 right-0 border-t border-dashed border-amber-400/40 z-10" />
+            </div>
+          )}
         </div>
       )}
 

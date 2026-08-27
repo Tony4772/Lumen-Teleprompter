@@ -18,7 +18,8 @@ import {
   Plus,
   Square,
   Film,
-  Heart
+  Heart,
+  BookOpen
 } from 'lucide-react';
 import { PrompterMode, PlaybackStatus } from '../types';
 
@@ -38,6 +39,7 @@ interface HeaderNavProps {
   onOpenAIModal: () => void;
   onOpenSettings: () => void;
   onOpenShortcuts: () => void;
+  onOpenManual?: () => void;
   onOpenLibrary?: () => void;
   onOpenDonation?: () => void;
   onToggleAudioRehearsal: () => void;
@@ -68,6 +70,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
   onOpenAIModal,
   onOpenSettings,
   onOpenShortcuts,
+  onOpenManual,
   onOpenLibrary,
   onOpenDonation,
   onToggleAudioRehearsal,
@@ -225,7 +228,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
                 </>
               ) : (
                 <>
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-600" />
                   <span className="hidden sm:inline">Grabar Video</span>
                   <span className="sm:hidden">REC</span>
                 </>
@@ -319,6 +322,17 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
         >
           <Volume2 className="w-4 h-4" />
         </button>
+
+        {/* User Manual */}
+        {onOpenManual && (
+          <button
+            onClick={onOpenManual}
+            className="w-9 h-9 rounded-full bg-white border border-[#E0DDD5] text-[#555] hover:border-[#121212] hover:text-[#121212] flex items-center justify-center transition-colors hidden sm:flex"
+            title="Manual de Usuario"
+          >
+            <BookOpen className="w-4 h-4" />
+          </button>
+        )}
 
         {/* Keyboard Shortcuts */}
         <button
