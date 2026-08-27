@@ -717,20 +717,20 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
           {/* Camera on Left (Default) */}
           {settings.cameraPosition === 'left' ? (
             <>
-              <div className="w-full md:w-1/2 h-1/2 md:h-full border-b md:border-b-0 md:border-r border-white/20 relative shrink-0">
+              <div className="w-full md:w-1/2 h-[35%] md:h-full border-b md:border-b-0 md:border-r border-white/20 relative shrink-0">
                 {renderWebcamSurface(false)}
               </div>
-              <div className="w-full md:w-1/2 h-1/2 md:h-full relative overflow-hidden">
+              <div className="w-full md:w-1/2 h-[65%] md:h-full relative overflow-hidden">
                 {renderPrompterTextSurface()}
               </div>
             </>
           ) : (
             /* Camera on Right */
             <>
-              <div className="w-full md:w-1/2 h-1/2 md:h-full relative overflow-hidden order-2 md:order-1">
+              <div className="w-full md:w-1/2 h-[65%] md:h-full relative overflow-hidden order-2 md:order-1">
                 {renderPrompterTextSurface()}
               </div>
-              <div className="w-full md:w-1/2 h-1/2 md:h-full border-t md:border-t-0 md:border-l border-white/20 relative shrink-0 order-1 md:order-2">
+              <div className="w-full md:w-1/2 h-[35%] md:h-full border-t md:border-t-0 md:border-l border-white/20 relative shrink-0 order-1 md:order-2">
                 {renderWebcamSurface(false)}
               </div>
             </>
@@ -824,8 +824,8 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
           className={`absolute z-40 flex items-center gap-2 transition-all ${
             isCameraEnabled && settings.cameraLayout === 'side-by-side'
               ? settings.cameraPosition === 'right'
-                ? 'top-[52%] md:top-4 right-3 md:right-1/2 md:mr-4'
-                : 'top-[52%] md:top-4 right-3 md:right-4'
+                ? 'top-[36%] md:top-4 right-3 md:right-1/2 md:mr-4'
+                : 'top-[36%] md:top-4 right-3 md:right-4'
               : 'top-4 right-4'
           }`}
         >
@@ -962,8 +962,8 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
           className={`absolute z-40 w-80 max-w-[calc(100vw-2rem)] bg-[#121212]/95 backdrop-blur-xl border border-white/20 rounded-xs p-4 shadow-editorial-lg text-white flex flex-col gap-3 animate-in fade-in slide-in-from-top-2 duration-150 ${
             isCameraEnabled && settings.cameraLayout === 'side-by-side'
               ? settings.cameraPosition === 'right'
-                ? 'top-[60%] md:top-16 right-3 md:right-1/2 md:mr-4'
-                : 'top-[60%] md:top-16 right-3 md:right-4'
+                ? 'top-[40%] md:top-16 right-3 md:right-1/2 md:mr-4'
+                : 'top-[40%] md:top-16 right-3 md:right-4'
               : 'top-16 right-4'
           }`}
         >

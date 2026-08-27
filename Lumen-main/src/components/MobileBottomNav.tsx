@@ -44,7 +44,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   };
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#F9F7F2]/95 backdrop-blur-md border-t border-[#E0DDD5] px-2 py-1.5 safe-bottom flex items-center justify-around shadow-editorial select-none">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#F9F7F2]/95 backdrop-blur-md border-t border-[#E0DDD5] px-1 py-1 safe-bottom flex items-center justify-around shadow-editorial select-none">
       
       {/* Tab 1: Editor Screen */}
       <button
@@ -53,7 +53,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           onSetScreen('editor');
           onSetMode('studio');
         }}
-        className={`flex-1 py-1.5 flex flex-col items-center justify-center gap-1 min-h-[44px] rounded-xs transition-all active:scale-95 ${
+        className={`flex-1 py-1 flex flex-col items-center justify-center gap-0.5 min-h-[40px] rounded-xs transition-all active:scale-95 ${
           currentScreen === 'editor' && mode === 'studio'
             ? 'text-[#121212] font-bold'
             : 'text-[#888] hover:text-[#121212]'
@@ -62,9 +62,9 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <div className={`p-1 rounded-full transition-all ${
           currentScreen === 'editor' && mode === 'studio' ? 'bg-[#121212] text-white shadow-xs' : 'bg-transparent'
         }`}>
-          <FileEdit className="w-4 h-4" />
+          <FileEdit className="w-3.5 h-3.5" />
         </div>
-        <span className="text-[10px] uppercase tracking-wider font-semibold">Editor</span>
+        <span className="text-[9px] uppercase tracking-wider font-semibold">Edit</span>
       </button>
 
       {/* Tab 2: Prompter Pro Screen */}
@@ -74,7 +74,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           onSetScreen('prompter');
           onSetMode('fullscreen');
         }}
-        className={`flex-1 py-1.5 flex flex-col items-center justify-center gap-1 min-h-[44px] rounded-xs transition-all active:scale-95 ${
+        className={`flex-1 py-1 flex flex-col items-center justify-center gap-0.5 min-h-[40px] rounded-xs transition-all active:scale-95 ${
           currentScreen === 'prompter' && mode === 'fullscreen'
             ? 'text-[#121212] font-bold'
             : 'text-[#888] hover:text-[#121212]'
@@ -83,9 +83,9 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <div className={`p-1 rounded-full transition-all ${
           currentScreen === 'prompter' && mode === 'fullscreen' ? 'bg-[#121212] text-white shadow-xs' : 'bg-transparent'
         }`}>
-          <Tv className="w-4 h-4" />
+          <Tv className="w-3.5 h-3.5" />
         </div>
-        <span className="text-[10px] uppercase tracking-wider font-semibold">Prompter</span>
+        <span className="text-[9px] uppercase tracking-wider font-semibold">Pro</span>
       </button>
 
       {/* Tab 3: Mirror Mode Screen */}
@@ -95,7 +95,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           onSetScreen('prompter');
           onSetMode('mirror');
         }}
-        className={`flex-1 py-1.5 flex flex-col items-center justify-center gap-1 min-h-[44px] rounded-xs transition-all active:scale-95 ${
+        className={`flex-1 py-1 flex flex-col items-center justify-center gap-0.5 min-h-[40px] rounded-xs transition-all active:scale-95 ${
           currentScreen === 'prompter' && mode === 'mirror'
             ? 'text-[#121212] font-bold'
             : 'text-[#888] hover:text-[#121212]'
@@ -104,9 +104,9 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <div className={`p-1 rounded-full transition-all ${
           currentScreen === 'prompter' && mode === 'mirror' ? 'bg-[#121212] text-white shadow-xs' : 'bg-transparent'
         }`}>
-          <FlipHorizontal className="w-4 h-4" />
+          <FlipHorizontal className="w-3.5 h-3.5" />
         </div>
-        <span className="text-[10px] uppercase tracking-wider font-semibold">Espejo</span>
+        <span className="text-[9px] uppercase tracking-wider font-semibold">Espejo</span>
       </button>
 
       {/* Tab 4: Camera Overlay Screen */}
@@ -116,7 +116,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           onSetScreen('prompter');
           onSetMode('camera');
         }}
-        className={`flex-1 py-1.5 flex flex-col items-center justify-center gap-1 min-h-[44px] rounded-xs transition-all active:scale-95 ${
+        className={`flex-1 py-1 flex flex-col items-center justify-center gap-0.5 min-h-[40px] rounded-xs transition-all active:scale-95 ${
           currentScreen === 'prompter' && mode === 'camera'
             ? 'text-[#121212] font-bold'
             : 'text-[#888] hover:text-[#121212]'
@@ -125,9 +125,9 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <div className={`p-1 rounded-full transition-all ${
           currentScreen === 'prompter' && mode === 'camera' ? 'bg-[#121212] text-white shadow-xs' : 'bg-transparent'
         }`}>
-          <Camera className="w-4 h-4" />
+          <Camera className="w-3.5 h-3.5" />
         </div>
-        <span className="text-[10px] uppercase tracking-wider font-semibold">Cámara</span>
+        <span className="text-[9px] uppercase tracking-wider font-semibold">Cámara</span>
       </button>
 
       {/* Tab 5: Scripts Library Screen */}
@@ -136,12 +136,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           triggerHaptic();
           onOpenLibrary();
         }}
-        className="flex-1 py-1.5 flex flex-col items-center justify-center gap-1 min-h-[44px] rounded-xs text-[#888] hover:text-[#121212] active:scale-95 transition-all"
+        className="flex-1 py-1 flex flex-col items-center justify-center gap-0.5 min-h-[40px] rounded-xs text-[#888] hover:text-[#121212] active:scale-95 transition-all"
       >
         <div className="p-1 rounded-full bg-transparent">
-          <FolderOpen className="w-4 h-4" />
+          <FolderOpen className="w-3.5 h-3.5" />
         </div>
-        <span className="text-[10px] uppercase tracking-wider font-semibold">Guiones</span>
+        <span className="text-[9px] uppercase tracking-wider font-semibold">Docs</span>
       </button>
     </nav>
   );

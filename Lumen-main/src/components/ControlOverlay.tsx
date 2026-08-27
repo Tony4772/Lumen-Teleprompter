@@ -89,14 +89,13 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
   };
 
   return (
-    <div className="w-full bg-[#F9F7F2]/95 backdrop-blur-md border-t border-[#E0DDD5] px-3 sm:px-8 py-2.5 sm:py-3 select-none z-30 transition-all shadow-editorial">
+    <div className="w-full bg-[#F9F7F2]/95 backdrop-blur-md border-t border-[#E0DDD5] px-2 sm:px-8 py-2 sm:py-3 select-none z-30 transition-all shadow-editorial">
       
       {/* Mobile Drawer Toggle Header */}
-      <div className="md:hidden flex items-center justify-between pb-2 mb-2 border-b border-[#E0DDD5]/70">
-        <div className="flex items-center gap-2 text-xs font-mono font-bold text-[#121212]">
-          <Clock className="w-3.5 h-3.5" />
+      <div className="md:hidden flex items-center justify-between pb-1.5 mb-1.5 border-b border-[#E0DDD5]/70">
+        <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-[#121212]">
+          <Clock className="w-3 h-3" />
           <span>{formatTime(elapsedSeconds)} / {formatTime(totalEstimatedSeconds)}</span>
-          <span className="text-[#888]">({settings.wpm} WPM)</span>
         </div>
 
         <button
@@ -104,11 +103,11 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
             triggerHaptic(10);
             setIsMobileExpanded(!isMobileExpanded);
           }}
-          className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white text-[#121212] border border-[#E0DDD5] text-[10px] uppercase tracking-wider font-bold shadow-2xs active:scale-95"
+          className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#121212] text-white text-[9px] uppercase tracking-wider font-bold shadow-2xs active:scale-95"
         >
-          <Sliders className="w-3 h-3" />
-          <span>{isMobileExpanded ? 'Ocultar Ajustes' : 'Ajustes Rápidos'}</span>
-          {isMobileExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
+          <Sliders className="w-2.5 h-2.5" />
+          <span>{isMobileExpanded ? 'Cerrar' : 'Ajustes'}</span>
+          {isMobileExpanded ? <ChevronDown className="w-2.5 h-2.5" /> : <ChevronUp className="w-2.5 h-2.5" />}
         </button>
       </div>
 
@@ -242,17 +241,17 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
         </div>
 
         {/* Primary Central Playback Controls (Editorial Ink Buttons) */}
-        <div className="flex items-center justify-center gap-2.5 sm:gap-4 w-full md:w-auto">
+        <div className="flex items-center justify-center gap-2 sm:gap-4 w-full md:w-auto">
           {/* Restart to Beginning */}
           <button
             onClick={() => {
               triggerHaptic(25);
               onRestart();
             }}
-            className="w-11 h-11 sm:w-10 sm:h-10 rounded-full bg-white hover:bg-[#121212] text-[#121212] hover:text-white border border-[#E0DDD5] flex items-center justify-center transition-all shadow-2xs active:scale-90"
+            className="w-10 h-10 sm:w-10 sm:h-10 rounded-full bg-white hover:bg-[#121212] text-[#121212] hover:text-white border border-[#E0DDD5] flex items-center justify-center transition-all shadow-2xs active:scale-90"
             title="Reiniciar al inicio"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-3.5 h-3.5" />
           </button>
 
           {/* Rewind 5s */}
@@ -261,10 +260,10 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
               triggerHaptic(15);
               onNudgeBackward();
             }}
-            className="w-11 h-11 sm:w-10 sm:h-10 rounded-full bg-white hover:bg-[#121212] text-[#121212] hover:text-white border border-[#E0DDD5] flex items-center justify-center transition-all shadow-2xs active:scale-90"
+            className="w-10 h-10 sm:w-10 sm:h-10 rounded-full bg-white hover:bg-[#121212] text-[#121212] hover:text-white border border-[#E0DDD5] flex items-center justify-center transition-all shadow-2xs active:scale-90"
             title="Retroceder 5s"
           >
-            <Rewind className="w-4 h-4" />
+            <Rewind className="w-3.5 h-3.5" />
           </button>
 
           {/* Primary Play/Pause Button */}
@@ -273,13 +272,13 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
               triggerHaptic(30);
               onTogglePlay();
             }}
-            className="w-14 h-14 sm:w-14 sm:h-14 rounded-full bg-[#121212] hover:bg-[#2a2a2a] text-white flex items-center justify-center shadow-editorial transition-all hover:scale-105 active:scale-95 shrink-0"
+            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#121212] hover:bg-[#2a2a2a] text-white flex items-center justify-center shadow-editorial transition-all hover:scale-105 active:scale-95 shrink-0"
             title={isPlaying ? 'Pausar' : 'Reproducir'}
           >
             {isPlaying ? (
-              <Pause className="w-6 h-6 fill-current stroke-[2]" />
+              <Pause className="w-5 h-5 fill-current stroke-[2]" />
             ) : (
-              <Play className="w-6 h-6 fill-current ml-0.5 stroke-[2]" />
+              <Play className="w-5 h-5 fill-current ml-0.5 stroke-[2]" />
             )}
           </button>
 
@@ -289,92 +288,36 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
               triggerHaptic(15);
               onNudgeForward();
             }}
-            className="w-11 h-11 sm:w-10 sm:h-10 rounded-full bg-white hover:bg-[#121212] text-[#121212] hover:text-white border border-[#E0DDD5] flex items-center justify-center transition-all shadow-2xs active:scale-90"
+            className="w-10 h-10 sm:w-10 sm:h-10 rounded-full bg-white hover:bg-[#121212] text-[#121212] hover:text-white border border-[#E0DDD5] flex items-center justify-center transition-all shadow-2xs active:scale-90"
             title="Avanzar 5s"
           >
-            <FastForward className="w-4 h-4" />
+            <FastForward className="w-3.5 h-3.5" />
           </button>
 
-          {/* Voice Tracking Toggle */}
-          <button
-            onClick={() => {
-              triggerHaptic(20);
-              onToggleVoice();
-            }}
-            className={`w-11 h-11 sm:w-10 sm:h-10 rounded-full border flex items-center justify-center transition-all shadow-2xs active:scale-90 ${
-              isVoiceActive
-                ? 'bg-[#121212] text-white border-[#121212]'
-                : 'bg-white hover:bg-[#121212] hover:text-white border-[#E0DDD5] text-[#121212]'
-            }`}
-            title="Seguimiento por voz (Micrófono)"
-          >
-            <Mic className="w-4 h-4" />
-          </button>
-
-          {/* Webcam Toggle Button */}
-          <button
-            onClick={() => {
-              triggerHaptic(20);
-              onToggleCamera();
-            }}
-            className={`w-11 h-11 sm:w-10 sm:h-10 rounded-full border flex items-center justify-center transition-all shadow-2xs active:scale-90 ${
-              isCameraActive || settings.cameraOverlay
-                ? 'bg-amber-400 text-black border-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.4)]'
-                : 'bg-white hover:bg-[#121212] hover:text-white border-[#E0DDD5] text-[#121212]'
-            }`}
-            title={
-              isCameraActive || settings.cameraOverlay
-                ? 'Desactivar cámara web'
-                : 'Activar cámara web al lado del teleprómpter'
-            }
-          >
-            <Camera className="w-4 h-4" />
-          </button>
-
-          {/* Record Video Button */}
+          {/* Record Video Button (Mobile optimized) */}
           {onToggleRecord && (
             <button
               onClick={() => {
                 triggerHaptic(30);
                 onToggleRecord();
               }}
-              className={`h-11 sm:h-10 px-3.5 rounded-full border flex items-center gap-2 font-mono text-xs font-bold transition-all shadow-2xs active:scale-95 ${
+              className={`h-10 sm:h-10 px-3 rounded-full border flex items-center gap-1.5 font-mono text-[10px] sm:text-xs font-bold transition-all shadow-2xs active:scale-95 ${
                 isRecording
                   ? 'bg-red-600 hover:bg-red-700 text-white border-red-500 animate-pulse'
                   : 'bg-white hover:bg-red-50 text-red-600 border-red-200 hover:border-red-400'
               }`}
-              title={isRecording ? 'Detener grabación de video' : 'Iniciar grabación de video'}
             >
               {isRecording ? (
                 <>
-                  <Square className="w-3.5 h-3.5 fill-current" />
+                  <Square className="w-3 h-3 fill-current" />
                   <span>{formatRecTime(recordingSeconds)}</span>
-                  <span className="text-[9px] uppercase tracking-wider bg-black/40 px-1 py-0.5 rounded-xs">
-                    STOP
-                  </span>
                 </>
               ) : (
                 <>
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping" />
-                  <span className="hidden lg:inline">Grabar</span>
-                  <span className="lg:hidden">REC</span>
+                  <span className="w-2 h-2 rounded-full bg-red-600 animate-ping" />
+                  <span>REC</span>
                 </>
               )}
-            </button>
-          )}
-
-          {/* Saved Takes Modal Trigger */}
-          {takesCount > 0 && onOpenRecordingModal && (
-            <button
-              onClick={() => {
-                triggerHaptic(15);
-                onOpenRecordingModal();
-              }}
-              className="h-11 sm:h-10 px-2.5 rounded-full bg-white hover:bg-[#EFECE6] border border-[#D6D2C4] text-[#121212] flex items-center gap-1.5 text-xs font-mono font-bold transition-colors shadow-2xs"
-              title="Ver tomas de video grabadas"
-            >
-              <Film className="w-3.5 h-3.5" />
-              <span>{takesCount}</span>
             </button>
           )}
         </div>

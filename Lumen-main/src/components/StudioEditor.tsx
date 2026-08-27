@@ -156,16 +156,16 @@ export const StudioEditor: React.FC<StudioEditorProps> = ({
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-[#F9F7F2] border-r border-[#E0DDD5] select-none text-[#121212]">
+    <div className="w-full h-full flex flex-col bg-[#F9F7F2] border-r border-[#E0DDD5] select-none text-[#121212] overflow-hidden">
       {/* Top Script Selector & Controls Bar */}
-      <div className="p-4 border-b border-[#E0DDD5] bg-[#F4F1EA] flex flex-col gap-3">
+      <div className="p-3 sm:p-4 border-b border-[#E0DDD5] bg-[#F4F1EA] flex flex-col gap-2 sm:gap-3 shrink-0">
         <div className="flex items-center justify-between gap-2">
           {/* Script Dropdown */}
           <div className="relative flex-1">
             <select
               value={activeScriptId}
               onChange={(e) => onSelectScript(e.target.value)}
-              className="w-full bg-white text-[#121212] text-xs font-semibold rounded-xs px-3 py-2 border border-[#E0DDD5] focus:outline-none focus:border-[#121212] truncate cursor-pointer shadow-2xs"
+              className="w-full bg-white text-[11px] sm:text-xs font-semibold rounded-xs px-2.5 py-1.5 border border-[#E0DDD5] focus:outline-none focus:border-[#121212] truncate cursor-pointer shadow-2xs"
             >
               {scripts.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -226,28 +226,27 @@ export const StudioEditor: React.FC<StudioEditorProps> = ({
         </div>
 
         {/* Technical Stats Readout */}
-        <div className="flex items-center justify-between text-xs font-mono text-[#666] pt-1">
-          <div className="flex items-center gap-3">
-            <span className="text-[#121212] font-semibold">{wordCount} palabras</span>
+        <div className="flex items-center justify-between text-[10px] font-mono text-[#666] pt-0.5 sm:pt-1">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <span className="text-[#121212] font-semibold">{wordCount} pal.</span>
             <span>•</span>
             <span className="flex items-center gap-1">
               <Clock className="w-3 h-3 text-[#121212]" />
-              <span className="text-[#121212] font-medium">~{formatTime(estimatedSeconds)}</span>
-              <span className="text-[10px] text-[#888]">(@ {activeScript.targetWPM} WPM)</span>
+              <span className="text-[#121212] font-medium">{formatTime(estimatedSeconds)}</span>
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={() => {
                 if (editorFont === 'serif') setEditorFont('sans');
                 else if (editorFont === 'sans') setEditorFont('mono');
                 else setEditorFont('serif');
               }}
-              className="px-2 py-0.5 rounded-xs text-[10px] uppercase tracking-wider bg-white text-[#121212] hover:bg-[#121212] hover:text-white border border-[#E0DDD5] transition-colors"
-              title="Cambiar tipografía del editor"
+              className="px-1.5 py-0.5 rounded-xs text-[9px] uppercase tracking-wider bg-white text-[#121212] hover:bg-[#121212] hover:text-white border border-[#E0DDD5] transition-colors"
+              title="Tipografía"
             >
-              {editorFont.toUpperCase()}
+              {editorFont.slice(0, 4)}
             </button>
 
             <button
@@ -293,16 +292,16 @@ export const StudioEditor: React.FC<StudioEditorProps> = ({
       </div>
 
       {/* Speaker Cue Inserter Ribbon (Editorial Style) */}
-      <div className="px-4 py-2 bg-[#EFECE6] border-b border-[#E0DDD5] flex items-center gap-2 overflow-x-auto no-scrollbar">
-        <span className="text-[9px] font-mono text-[#666] tracking-widest uppercase shrink-0 mr-1 flex items-center gap-1">
-          <Tag className="w-3 h-3 text-[#121212]" />
+      <div className="px-3 py-1.5 bg-[#EFECE6] border-b border-[#E0DDD5] flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+        <span className="text-[8px] font-mono text-[#666] tracking-widest uppercase shrink-0 mr-1 flex items-center gap-1">
+          <Tag className="w-2.5 h-2.5 text-[#121212]" />
           CUES:
         </span>
         {COMMON_CUES.map((cue) => (
           <button
             key={cue.tag}
             onClick={() => handleInsertCue(cue.tag)}
-            className={`px-2.5 py-1 rounded-xs text-[10px] font-mono font-bold tracking-wider uppercase border shrink-0 transition-all shadow-2xs ${cue.style}`}
+            className={`px-2 py-0.5 rounded-xs text-[9px] font-mono font-bold tracking-wider uppercase border shrink-0 transition-all shadow-2xs ${cue.style}`}
           >
             {cue.label}
           </button>
