@@ -91,12 +91,13 @@ function requestAvStream(): Promise<MediaStream> {
 }
 
 /**
- * Llamar SÍNCRONO en el onClick de Iniciar (gesto del usuario).
+ * Llamar SÍNCRONO en el onClick de Iniciar.
+ * Si ya hay cámara+mic, reutiliza (no vuelve a pedir cámara).
+ * Si falta mic, pide solo audio y arma stream AV sin reabrir video.
  */
 export function beginAvCaptureFromUserGesture(): Promise<MediaStream> {
   const shared = getSharedCameraStream();
 
-  // Ya hay cámara + mic → no tocar nada (mantiene preview y graba con audio).
   if (shared && isLive(shared, 'video') && isLive(shared, 'audio')) {
     shared.getTracks().forEach((t) => {
       t.enabled = true;
@@ -104,8 +105,30 @@ export function beginAvCaptureFromUserGesture(): Promise<MediaStream> {
     return Promise.resolve(shared);
   }
 
-  // Falta mic (o no hay stream): pedir AV en este gesto.
-  // Si falla, el preview anterior NO se apaga (stopPrevious solo tras éxito).
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return Promise.reject(new Error('NO_MEDIA_DEVICES'));
+  }
+
+  // Ya hay cámara, falta mic → pedir SOLO mic (no volver a pedir cámara).
+  if (shared && isLive(shared, 'video') && !isLive(shared, 'audio')) {
+    return navigator.mediaDevices
+      .getUserMedia({ audio: true })
+      .then((audioStream) => {
+        const audioTracks = audioStream.getAudioTracks();
+        if (!audioTracks.some((t) => t.readyState === 'live')) {
+          audioStream.getTracks().forEach((t) => t.stop());
+          throw new Error('NO_AUDIO');
+        }
+        audioTracks.forEach((t) => {
+          t.enabled = true;
+          shared.addTrack(t);
+        });
+        setSharedCameraStream(shared, { stopPrevious: false });
+        return shared;
+      });
+  }
+
+  // No hay preview aún → pedir ambos.
   return requestAvStream();
 }
 

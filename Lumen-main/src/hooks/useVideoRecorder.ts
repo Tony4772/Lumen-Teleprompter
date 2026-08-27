@@ -151,13 +151,7 @@ export const useVideoRecorder = ({
       console.error('adoptAvPromise failed:', err?.name, err?.message, err);
       sessionStreamRef.current = null;
 
-      // Si falló un getUserMedia nuevo pero el preview sigue vivo, úsalo
-      const shared = getSharedCameraStream();
-      if (shared && shared.getVideoTracks().some((t) => t.readyState === 'live')) {
-        sessionStreamRef.current = shared;
-        return true;
-      }
-
+      // Solo aceptar stream con mic live
       const ready = getReadyAvStream();
       if (ready) {
         sessionStreamRef.current = ready;
