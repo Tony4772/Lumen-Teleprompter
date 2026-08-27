@@ -129,7 +129,20 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
 
     const attachToVideo = (s: MediaStream) => {
       if (videoRef.current) {
-        videoRef.current.srcObject = s;
+        // En móviles, aislar solo pistas de video para el preview
+        // para que el OS (iOS CoreAudio / Android AudioFlinger) no atenúe el micrófono
+        const videoTracks = s.getVideoTracks();
+        if (videoTracks.length > 0) {
+          videoRef.current.srcObject = new MediaStream(videoTracks);
+        } else {
+          videoRef.current.srcObject = s;
+        }
+        videoRef.current.muted = true;
+        videoRef.current.defaultMuted = true;
+        videoRef.current.volume = 0;
+        videoRef.current.playsInline = true;
+        videoRef.current.setAttribute('playsinline', 'true');
+        videoRef.current.setAttribute('muted', 'true');
         videoRef.current.play().catch(console.warn);
         setIsCameraReady(true);
       }
@@ -158,7 +171,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
-        // Si ya hay stream con audio (grabación iPhone), no pisarlo con video-only
+        // Si ya hay stream con audio (grabación activa), no pisarlo con video-only
         const fromRecorder = getSharedCameraStream();
         if (
           fromRecorder &&
@@ -208,10 +221,13 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
     window.addEventListener(CAMERA_STREAM_EVENT, onExternalStream);
 
     const syncInterval = setInterval(() => {
-      if (isCameraEnabled && stream && videoRef.current && videoRef.current.srcObject !== stream) {
-        videoRef.current.srcObject = stream;
+      if (isCameraEnabled && stream && videoRef.current) {
+        const vTracks = stream.getVideoTracks();
+        if (vTracks.length > 0 && (!videoRef.current.srcObject || (videoRef.current.srcObject as MediaStream).getVideoTracks()[0] !== vTracks[0])) {
+          attachToVideo(stream);
+        }
       }
-    }, 100);
+    }, 150);
 
     return () => {
       cancelled = true;

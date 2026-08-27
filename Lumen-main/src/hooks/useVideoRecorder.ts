@@ -9,6 +9,11 @@ import {
 
 export const getSupportedVideoMimeType = (): string => pickRecorderMimeType();
 
+function isMobileDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return isAppleTouchDevice() || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
 function buildVideoFile(blob: Blob, customFilename?: string): File {
   const rawType = (blob.type || '').toLowerCase();
   const isMp4 = rawType.includes('mp4');
@@ -48,9 +53,11 @@ export async function saveRecordedVideo(
   }
 
   const file = buildVideoFile(blob, customFilename);
-  const preferShare = isAppleTouchDevice();
+  const isMobile = isMobileDevice();
+
+  // En dispositivos móviles (Android + iOS), WebShare permite guardar directo en Fotos/Galería o compartir
   const canShare =
-    preferShare &&
+    isMobile &&
     typeof navigator.share === 'function' &&
     typeof navigator.canShare === 'function' &&
     navigator.canShare({ files: [file] });
@@ -65,7 +72,7 @@ export async function saveRecordedVideo(
       return {
         ok: true,
         method: 'share',
-        message: 'En el menú elige “Guardar en Archivos” o “Guardar Video”.',
+        message: 'Video guardado o compartido con éxito.',
       };
     } catch (err: any) {
       if (err?.name === 'AbortError') {
@@ -159,7 +166,7 @@ export const useVideoRecorder = ({
         err?.name === 'NotAllowedError'
           ? 'El navegador bloqueó cámara/mic. En el candado de la URL elige Permitir y vuelve a Iniciar.'
           : err?.name === 'NotReadableError'
-            ? 'La cámara está ocupada por otra app. Ciérrala e Inicia otra vez.'
+            ? 'El micrófono o cámara están ocupados por otra app. Ciérrala e Inicia otra vez.'
             : 'No se pudo abrir cámara y micrófono. Toca Iniciar otra vez.'
       );
       return false;
@@ -190,7 +197,7 @@ export const useVideoRecorder = ({
           : getReadyAvStream();
 
       if (!stream) {
-        setRecorderError('Cámara/mic no listos. Toca Iniciar otra vez.');
+        setRecorderError('Cámara y micrófono no listos. Toca Iniciar otra vez.');
         setIsRecording(false);
         return false;
       }
@@ -203,9 +210,18 @@ export const useVideoRecorder = ({
       try {
         const mimeType = pickRecorderMimeType();
         let recorder: MediaRecorder;
-        try {
-          recorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
-        } catch {
+
+        if (mimeType) {
+          try {
+            recorder = new MediaRecorder(stream, { mimeType });
+          } catch {
+            try {
+              recorder = new MediaRecorder(stream, { mimeType: mimeType.split(';')[0] });
+            } catch {
+              recorder = new MediaRecorder(stream);
+            }
+          }
+        } else {
           recorder = new MediaRecorder(stream);
         }
         mediaRecorderRef.current = recorder;
@@ -216,14 +232,15 @@ export const useVideoRecorder = ({
           }
         };
 
-        recorder.onerror = () => {
-          setRecorderError('Error al grabar. Toca Iniciar otra vez.');
+        recorder.onerror = (e) => {
+          console.error('MediaRecorder error:', e);
+          setRecorderError('Error durante la grabación. Toca Iniciar otra vez.');
         };
 
         const finalizeTake = () => {
           const chunks = recordedChunksRef.current;
           if (!chunks.length) {
-            setRecorderError('No quedó video. Graba 3+ segundos y pausa.');
+            setRecorderError('No quedó video grabado. Graba unos segundos y pausa.');
             setIsRecording(false);
             return;
           }
@@ -269,13 +286,19 @@ export const useVideoRecorder = ({
         };
 
         recorder.onstop = () => {
-          window.setTimeout(finalizeTake, 200);
+          // Breve delay para garantizar que el último chunk esté procesado
+          window.setTimeout(finalizeTake, 80);
         };
 
-        try {
-          recorder.start(1000);
-        } catch {
+        // En iOS Safari, no usar timeslice para evitar pérdida de paquetes de audio en WebKit
+        if (isAppleTouchDevice()) {
           recorder.start();
+        } else {
+          try {
+            recorder.start(1000);
+          } catch {
+            recorder.start();
+          }
         }
 
         recordingStartTimeRef.current = Date.now();
@@ -312,18 +335,8 @@ export const useVideoRecorder = ({
           } catch {
             // ignore
           }
-          window.setTimeout(() => {
-            try {
-              if (mediaRecorderRef.current?.state !== 'inactive') {
-                mediaRecorderRef.current?.stop();
-              }
-            } catch {
-              // ignore
-            }
-          }, 100);
-        } else {
-          recorder.stop();
         }
+        recorder.stop();
       } catch (e) {
         console.warn('stopRecording:', e);
       }
@@ -381,3 +394,4 @@ export const useVideoRecorder = ({
     activeStream: sessionStreamRef.current,
   };
 };
+

@@ -143,15 +143,14 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
         </div>
 
         <div className="p-4 sm:p-6 overflow-y-auto flex flex-col gap-5">
-          {/* Preview con controles nativos (como antes) */}
+          {/* Preview con controles nativos */}
           <div className="relative w-full aspect-video bg-black rounded-xs overflow-hidden border border-[#121212] shadow-sm">
             <video
               key={currentTake.id}
               src={currentTake.url}
               controls
-              autoPlay
               playsInline
-              preload="auto"
+              preload="metadata"
               className="w-full h-full object-contain"
             />
           </div>

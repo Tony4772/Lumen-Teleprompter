@@ -8,6 +8,7 @@ interface SpeechFollowerOptions {
   onMatchProgress?: (ratio: number, matchedWord: string, wordIndex: number) => void;
   onPermissionDenied?: () => void;
   onUnsupported?: (message: string) => void;
+  suspended?: boolean;
 }
 
 function tokensMatch(spoken: string, script: string): boolean {
@@ -33,6 +34,7 @@ export function useSpeechFollower({
   onMatchProgress,
   onPermissionDenied,
   onUnsupported,
+  suspended = false,
 }: SpeechFollowerOptions) {
   const [isListening, setIsListening] = useState(false);
   const [lastTranscript, setLastTranscript] = useState('');
@@ -43,6 +45,7 @@ export function useSpeechFollower({
   const scriptWordsRef = useRef<string[]>([]);
   const currentWordPointerRef = useRef(0);
   const enabledRef = useRef(enabled);
+  const suspendedRef = useRef(suspended);
   const onMatchProgressRef = useRef(onMatchProgress);
   const onPermissionDeniedRef = useRef(onPermissionDenied);
   const onUnsupportedRef = useRef(onUnsupported);
@@ -52,6 +55,7 @@ export function useSpeechFollower({
   const notAllowedRetriesRef = useRef(0);
 
   enabledRef.current = enabled;
+  suspendedRef.current = suspended;
   onMatchProgressRef.current = onMatchProgress;
   onPermissionDeniedRef.current = onPermissionDenied;
   onUnsupportedRef.current = onUnsupported;
@@ -134,6 +138,10 @@ export function useSpeechFollower({
   }, []);
 
   const startListening = useCallback(() => {
+    if (suspendedRef.current || !enabledRef.current) {
+      return;
+    }
+
     // En iPhone (Safari/Chrome) el reconocimiento continuo de voz del navegador
     // no es fiable: no pedimos “ve a ajustes de Chrome”.
     if (isAppleTouchDevice()) {
@@ -186,18 +194,17 @@ export function useSpeechFollower({
 
     recognition.onerror = (event: any) => {
       const code = event?.error as string;
-      console.warn('Speech recognition error:', code);
 
       if (code === 'no-speech' || code === 'aborted' || code === 'network') {
         return;
       }
 
       if (code === 'not-allowed' || code === 'service-not-allowed') {
-        if (notAllowedRetriesRef.current < 1 && enabledRef.current) {
+        if (notAllowedRetriesRef.current < 1 && enabledRef.current && !suspendedRef.current) {
           notAllowedRetriesRef.current += 1;
           if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
           restartTimerRef.current = setTimeout(() => {
-            if (enabledRef.current) startListeningRef.current();
+            if (enabledRef.current && !suspendedRef.current) startListeningRef.current();
           }, 500);
           return;
         }
@@ -213,11 +220,9 @@ export function useSpeechFollower({
       }
 
       if (code === 'audio-capture') {
-        if (notAllowedRetriesRef.current < 2 && enabledRef.current) {
-          notAllowedRetriesRef.current += 1;
-          return;
-        }
-        setError('El micrófono está ocupado por la grabación. Pausa el video e intenta Voz otra vez.');
+        // Si el micrófono fue tomado por la grabación de video, suspender ASR
+        intentionalStopRef.current = true;
+        setIsListening(false);
         return;
       }
 
@@ -226,10 +231,10 @@ export function useSpeechFollower({
 
     recognition.onend = () => {
       setIsListening(false);
-      if (intentionalStopRef.current || !enabledRef.current) return;
+      if (intentionalStopRef.current || !enabledRef.current || suspendedRef.current) return;
       if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
       restartTimerRef.current = setTimeout(() => {
-        if (!enabledRef.current || intentionalStopRef.current) return;
+        if (!enabledRef.current || intentionalStopRef.current || suspendedRef.current) return;
         startListeningRef.current();
       }, isMobile ? 400 : 300);
     };
@@ -263,17 +268,7 @@ export function useSpeechFollower({
     recognitionRef.current = recognition;
 
     const kickOff = async () => {
-      // En Android: pedir mic con el diálogo nativo (claro para el usuario) antes del ASR
-      try {
-        const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mic.getTracks().forEach((t) => t.stop());
-      } catch {
-        const msg =
-          'Cuando el teléfono pida acceso al micrófono, toca Permitir y vuelve a activar Voz.';
-        setError(msg);
-        onUnsupportedRef.current?.(msg);
-        return;
-      }
+      if (!enabledRef.current || suspendedRef.current) return;
 
       try {
         recognition.start();
@@ -281,12 +276,11 @@ export function useSpeechFollower({
         console.error('Error starting speech recognition:', err);
         if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
         restartTimerRef.current = setTimeout(() => {
-          if (!enabledRef.current) return;
+          if (!enabledRef.current || suspendedRef.current) return;
           try {
             recognition.start();
           } catch (e2) {
             console.error('Speech start retry failed:', e2);
-            setError('No se pudo iniciar Voz. Toca de nuevo el botón Voz.');
           }
         }, 350);
       }
@@ -305,7 +299,7 @@ export function useSpeechFollower({
   }, []);
 
   useEffect(() => {
-    if (enabled) {
+    if (enabled && !suspended) {
       if (isAppleTouchDevice()) {
         const msg =
           'En iPhone el modo Voz no está disponible aún. Usa Iniciar: el texto avanza solo (ajusta WPM).';
@@ -322,7 +316,7 @@ export function useSpeechFollower({
       }
       notAllowedRetriesRef.current = 0;
       const t = window.setTimeout(() => {
-        if (enabledRef.current) startListening();
+        if (enabledRef.current && !suspendedRef.current) startListening();
       }, 120);
       return () => {
         window.clearTimeout(t);
@@ -336,7 +330,7 @@ export function useSpeechFollower({
       stopListening();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled]);
+  }, [enabled, suspended]);
 
   return {
     isListening,

@@ -151,6 +151,7 @@ export default function App() {
     enabled: settings.speechTracking,
     scriptContent: activeScript?.content || '',
     onMatchProgress: handleVoiceProgress,
+    suspended: isRecording || playbackStatus === 'countdown' || playbackStatus === 'playing',
     onPermissionDenied: () => {
       setSettings((prev) => ({ ...prev, speechTracking: false }));
     },
@@ -257,6 +258,10 @@ export default function App() {
   }, [settings.cameraOverlay, mode, startRecording]);
 
   const handleTogglePlay = useCallback(() => {
+    // Detener cualquier audio TTS que pudiera estar reproduciéndose
+    AudioRehearsalEngine.stop();
+    setIsAudioRehearsing(false);
+
     if (playbackStatus === 'countdown') {
       clearCountdown();
       setPlaybackStatus('idle');
@@ -265,8 +270,6 @@ export default function App() {
 
     if (playbackStatus === 'playing') {
       setPlaybackStatus('paused');
-      AudioRehearsalEngine.stop();
-      setIsAudioRehearsing(false);
       if (isRecordingRef.current) {
         stopRecording();
       }
