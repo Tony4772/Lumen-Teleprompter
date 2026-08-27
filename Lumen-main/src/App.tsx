@@ -204,7 +204,6 @@ export default function App() {
     takesHistory,
     recorderError,
     clearRecorderError,
-    prepareRecordingStream,
     startRecording,
     stopRecording,
     deleteTakeFromHistory,
@@ -244,23 +243,25 @@ export default function App() {
     return () => clearCountdown();
   }, [clearCountdown]);
 
-  /** Tras countdown: solo MediaRecorder (el stream AV ya se abrió al tocar Iniciar). */
+  /** Enciende cámara (si hace falta), graba y pone el texto en marcha. */
   const beginPlayAndRecord = useCallback(async () => {
-    if (settings.speechTracking) {
-      setSettings((prev) => ({ ...prev, speechTracking: false }));
+    const needsCamera = !settings.cameraOverlay && mode !== 'camera';
+    if (needsCamera) {
+      setSettings((prev) => ({ ...prev, cameraOverlay: true }));
+      // Esperar a que el preview abra la cámara (stream compartido)
+      await new Promise((r) => setTimeout(r, 800));
     }
 
-    const started = await startRecording(undefined, { videoOnly: false });
+    const started = await startRecording(undefined, {
+      videoOnly: false,
+    });
 
-    if (started) {
-      if (!settings.cameraOverlay && mode !== 'camera') {
-        setSettings((prev) => ({ ...prev, cameraOverlay: true }));
-      }
-      setPlaybackStatus('playing');
-    } else {
-      setPlaybackStatus('paused');
+    setPlaybackStatus('playing');
+
+    if (!started) {
+      console.warn('Grabación no iniciada');
     }
-  }, [settings.cameraOverlay, settings.speechTracking, mode, startRecording]);
+  }, [settings.cameraOverlay, mode, startRecording]);
 
   // One button: play scroll + record camera (with optional countdown from idle)
   const handleTogglePlay = useCallback(() => {
@@ -280,50 +281,35 @@ export default function App() {
       return;
     }
 
-    // Crítico en iPhone: pedir cámara+mic AHORA (gesto del usuario), no tras el countdown.
-    void (async () => {
-      if (settings.speechTracking) {
-        setSettings((prev) => ({ ...prev, speechTracking: false }));
-      }
+    // Al tocar Iniciar: abrir cámara ya (gesto del usuario), luego cuenta o grabar
+    if (!settings.cameraOverlay && mode !== 'camera') {
+      setSettings((prev) => ({ ...prev, cameraOverlay: true }));
+    }
 
-      const ready = await prepareRecordingStream();
-      if (!ready) {
-        setPlaybackStatus('idle');
-        return;
-      }
+    if (settings.countdownSeconds > 0 && playbackStatus === 'idle') {
+      clearCountdown();
+      setPlaybackStatus('countdown');
+      let currentCount = settings.countdownSeconds;
+      setCountdownNumber(currentCount);
 
-      // Mostrar preview con el mismo stream AV durante la cuenta regresiva
-      if (!settings.cameraOverlay && mode !== 'camera') {
-        setSettings((prev) => ({ ...prev, cameraOverlay: true }));
-      }
-
-      if (settings.countdownSeconds > 0 && playbackStatus === 'idle') {
-        clearCountdown();
-        setPlaybackStatus('countdown');
-        let currentCount = settings.countdownSeconds;
-        setCountdownNumber(currentCount);
-
-        countdownIntervalRef.current = setInterval(() => {
-          currentCount -= 1;
-          if (currentCount > 0) {
-            setCountdownNumber(currentCount);
-          } else {
-            clearCountdown();
-            void beginPlayAndRecord();
-          }
-        }, 1000);
-      } else {
-        await beginPlayAndRecord();
-      }
-    })();
+      countdownIntervalRef.current = setInterval(() => {
+        currentCount -= 1;
+        if (currentCount > 0) {
+          setCountdownNumber(currentCount);
+        } else {
+          clearCountdown();
+          void beginPlayAndRecord();
+        }
+      }, 1000);
+    } else {
+      void beginPlayAndRecord();
+    }
   }, [
     playbackStatus,
     settings.countdownSeconds,
     settings.cameraOverlay,
-    settings.speechTracking,
     mode,
     clearCountdown,
-    prepareRecordingStream,
     beginPlayAndRecord,
     stopRecording,
   ]);
@@ -560,7 +546,6 @@ export default function App() {
               onDeleteScript={handleDeleteScript}
               onCloneScript={handleCloneScript}
               onOpenAIModal={() => setIsAIOpen(true)}
-              onInsertCue={(tag) => {}}
               onLaunchPrompter={() => {
                 setMobileScreen('prompter');
                 setMode('fullscreen');

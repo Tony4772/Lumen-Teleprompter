@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RecordedTake } from '../types';
 import { saveRecordedVideo } from '../hooks/useVideoRecorder';
 import { isAppleTouchDevice } from '../utils/cameraStreamStore';
 import {
+  Download,
   RotateCcw,
   X,
   Film,
@@ -12,7 +13,6 @@ import {
   Trash2,
   Play,
   Share2,
-  Download,
 } from 'lucide-react';
 
 interface RecordingModalProps {
@@ -38,16 +38,13 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
   const [customFilename, setCustomFilename] = useState<string>('');
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [playError, setPlayError] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const isApple = useMemo(() => isAppleTouchDevice(), []);
+  const isApple = typeof navigator !== 'undefined' && isAppleTouchDevice();
 
   useEffect(() => {
     if (!isOpen) return;
     const initial = take || takesHistory[0] || null;
     setSelectedTake(initial);
     setSaveStatus(null);
-    setPlayError(null);
     if (initial) {
       const cleanTitle = (initial.scriptTitle || 'grabacion')
         .toLowerCase()
@@ -58,35 +55,9 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
     }
   }, [isOpen, take, takesHistory]);
 
-  const currentTake = selectedTake || take || takesHistory[0] || null;
-
-  // URL fresca desde el blob: más fiable que reutilizar una URL antigua
-  const previewUrl = useMemo(() => {
-    if (!currentTake?.blob) return currentTake?.url || '';
-    return URL.createObjectURL(currentTake.blob);
-  }, [currentTake?.id, currentTake?.blob, currentTake?.url]);
-
-  useEffect(() => {
-    return () => {
-      if (previewUrl && previewUrl.startsWith('blob:')) {
-        try {
-          URL.revokeObjectURL(previewUrl);
-        } catch {
-          // ignore
-        }
-      }
-    };
-  }, [previewUrl]);
-
-  useEffect(() => {
-    setPlayError(null);
-    const el = videoRef.current;
-    if (!el || !previewUrl) return;
-    el.load();
-  }, [previewUrl]);
-
   if (!isOpen) return null;
 
+  const currentTake = selectedTake || take || takesHistory[0] || null;
   if (!currentTake) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
@@ -153,10 +124,10 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
             </div>
             <div>
               <h3 className="font-serif italic font-bold text-lg text-[#121212] leading-tight">
-                Revisar toma
+                Grabación Finalizada
               </h3>
               <p className="text-[11px] font-mono text-[#666] uppercase tracking-wider">
-                {takesHistory.length} toma{takesHistory.length === 1 ? '' : 's'} • reproduce, renombra y guarda
+                {currentTake.scriptTitle || 'Toma'} • {currentTake.createdAt}
               </p>
             </div>
           </div>
@@ -172,28 +143,17 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
         </div>
 
         <div className="p-4 sm:p-6 overflow-y-auto flex flex-col gap-5">
-          <div className="relative w-full aspect-video bg-black rounded-xs overflow-hidden border border-[#121212] shadow-sm flex items-center justify-center">
+          {/* Preview con controles nativos (como antes) */}
+          <div className="relative w-full aspect-video bg-black rounded-xs overflow-hidden border border-[#121212] shadow-sm">
             <video
-              ref={videoRef}
               key={currentTake.id}
-              src={previewUrl}
+              src={currentTake.url}
               controls
+              autoPlay
               playsInline
-              preload="metadata"
-              controlsList="nodownload"
-              className="w-full h-full object-contain bg-black"
-              onError={() =>
-                setPlayError(
-                  'No se pudo reproducir aquí. Prueba Descargar y ábrelo en el reproductor del PC.'
-                )
-              }
-              onLoadedData={() => setPlayError(null)}
+              preload="auto"
+              className="w-full h-full object-contain"
             />
-            {playError && (
-              <div className="absolute inset-x-0 bottom-0 bg-black/80 text-white text-[11px] font-mono px-3 py-2 text-center">
-                {playError}
-              </div>
-            )}
           </div>
 
           <div className="grid grid-cols-3 gap-2">
@@ -217,27 +177,27 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
               <FileVideo className="w-4 h-4 text-[#121212]" />
               <div>
                 <div className="text-[10px] uppercase text-[#888] font-mono">Formato</div>
-                <div className="text-sm font-bold font-mono truncate max-w-[5rem]">
-                  {(currentTake.mimeType || 'video').split(';')[0].replace('video/', '')}
+                <div className="text-sm font-bold font-mono truncate max-w-[5rem] uppercase">
+                  {(currentTake.mimeType || 'video').includes('mp4') ? 'MP4' : 'WEBM'}
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-mono uppercase tracking-wider text-[#666] font-bold">
-              Nombre al guardar
+          <div className="bg-white p-4 rounded-xs border border-[#E0DDD5] flex flex-col gap-2 shadow-2xs">
+            <label className="text-xs font-semibold text-[#121212]">
+              Nombre de archivo para guardar
             </label>
             <input
               type="text"
               value={customFilename}
               onChange={(e) => setCustomFilename(e.target.value)}
               placeholder="Nombre del video..."
-              className="w-full px-3 py-2 text-xs font-mono bg-white border border-[#D6D2C4] rounded-xs focus:outline-none focus:border-[#121212]"
+              className="w-full px-3 py-2 text-xs font-mono bg-[#F9F7F2] border border-[#D6D2C4] rounded-xs focus:outline-none focus:border-[#121212]"
             />
           </div>
 
-          {takesHistory.length > 0 && (
+          {takesHistory.length > 1 && (
             <div className="flex flex-col gap-2 pt-2 border-t border-[#E0DDD5]">
               <span className="text-[11px] font-mono uppercase tracking-wider text-[#666] font-bold">
                 Historial ({takesHistory.length})
@@ -259,41 +219,24 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
                         Toma #{takesHistory.length - index} ({formatDuration(t.durationSeconds)})
                       </span>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
+                    {onDeleteTake && (
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          void handleSave(t.blob, `toma-${takesHistory.length - index}`);
+                          onDeleteTake(t.id);
+                          if (currentTake.id === t.id) {
+                            const remaining = takesHistory.filter((x) => x.id !== t.id);
+                            if (remaining.length === 0) onClose();
+                            else setSelectedTake(remaining[0]);
+                          }
                         }}
-                        className="p-1.5 hover:text-green-700 text-[#121212]"
-                        title={isApple ? 'Compartir' : 'Descargar'}
+                        className="p-1.5 hover:text-red-600 text-[#888]"
+                        title="Eliminar"
                       >
-                        {isApple ? (
-                          <Share2 className="w-3.5 h-3.5" />
-                        ) : (
-                          <Download className="w-3.5 h-3.5" />
-                        )}
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
-                      {onDeleteTake && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteTake(t.id);
-                            if (currentTake.id === t.id) {
-                              const remaining = takesHistory.filter((x) => x.id !== t.id);
-                              if (remaining.length === 0) onClose();
-                              else setSelectedTake(remaining[0]);
-                            }
-                          }}
-                          className="p-1.5 hover:text-red-600 text-[#888]"
-                          title="Eliminar"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -308,36 +251,15 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
             onClick={() => void handleSave(currentTake.blob)}
             className="w-full px-6 py-3 rounded-xs bg-[#121212] text-white hover:bg-black text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-editorial active:scale-95 disabled:opacity-60"
           >
-            {isApple ? (
-              <Share2 className="w-4 h-4 text-amber-400" />
-            ) : (
-              <Download className="w-4 h-4 text-amber-400" />
-            )}
+            {isApple ? <Share2 className="w-4 h-4 text-amber-400" /> : <Download className="w-4 h-4 text-amber-400" />}
             <span>
-              {isSaving
-                ? isApple
-                  ? 'Abriendo menú…'
-                  : 'Descargando…'
-                : isApple
-                  ? 'Compartir / Guardar en iPhone'
-                  : 'Descargar video'}
+              {isSaving ? 'Guardando…' : isApple ? 'Compartir / Guardar' : 'Descargar video'}
             </span>
           </button>
 
           {saveStatus && (
-            <p className="text-[11px] font-mono text-[#121212] bg-white border border-[#E0DDD5] rounded-xs px-3 py-2 text-center leading-relaxed">
+            <p className="text-[11px] font-mono text-[#121212] bg-white border border-[#E0DDD5] rounded-xs px-3 py-2 text-center">
               {saveStatus}
-            </p>
-          )}
-
-          {isApple ? (
-            <p className="text-[10px] font-mono text-[#666] text-center leading-relaxed">
-              En iPhone: toca el botón → elige <strong>Guardar en Archivos</strong> o{' '}
-              <strong>Guardar Video</strong>.
-            </p>
-          ) : (
-            <p className="text-[10px] font-mono text-[#666] text-center leading-relaxed">
-              Usa los controles del video para reproducir. Renombra arriba y toca Descargar.
             </p>
           )}
 

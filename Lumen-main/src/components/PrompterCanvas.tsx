@@ -1,12 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { PrompterSettings, PlaybackStatus, CameraLayout } from '../types';
 import { parseScriptContent, ParsedLine, countLineScriptWords } from '../utils/prompterUtils';
-import {
-  setSharedCameraStream,
-  getSharedCameraStream,
-  isPreviewCaptureAllowed,
-  CAMERA_STREAM_EVENT,
-} from '../utils/cameraStreamStore';
+import { setSharedCameraStream, getSharedCameraStream, CAMERA_STREAM_EVENT } from '../utils/cameraStreamStore';
 import { 
   Eye, 
   ArrowRight, 
@@ -143,7 +138,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
     const setupCamera = async () => {
       if (!isCameraEnabled) return;
 
-      // Preferir stream del grabador (video+audio). Nunca abrir otro getUserMedia encima.
+      // Si el grabador ya abrió un stream AV, reutilizarlo
       const existing = getSharedCameraStream();
       if (existing && existing.getVideoTracks().some((t) => t.readyState === 'live')) {
         stream = existing;
@@ -153,35 +148,13 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
         return;
       }
 
-      // Durante preparación/grabación no abrir preview-only (rompe iPhone)
-      if (!isPreviewCaptureAllowed()) {
-        return;
-      }
-
       try {
         setCameraError(null);
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user' },
+          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
           audio: false,
         });
         if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        // Si el grabador ya publicó un stream AV, descartar este preview-only
-        const fromRecorder = getSharedCameraStream();
-        if (
-          fromRecorder &&
-          fromRecorder !== stream &&
-          fromRecorder.getVideoTracks().some((t) => t.readyState === 'live')
-        ) {
-          stream.getTracks().forEach((t) => t.stop());
-          stream = fromRecorder;
-          ownsStream = false;
-          attachToVideo(fromRecorder);
-          return;
-        }
-        if (!isPreviewCaptureAllowed()) {
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
@@ -191,16 +164,8 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
       } catch (err) {
         console.warn('Webcam not accessible:', err);
         setIsCameraReady(false);
-        const fromRecorder = getSharedCameraStream();
-        if (fromRecorder && fromRecorder.getVideoTracks().some((t) => t.readyState === 'live')) {
-          stream = fromRecorder;
-          ownsStream = false;
-          attachToVideo(fromRecorder);
-          setCameraError(null);
-          return;
-        }
-        if (!isPreviewCaptureAllowed()) return;
-        setCameraError('No se pudo acceder a la cámara.');
+        setCameraError('No se pudo acceder a la cámara web.');
+        setSharedCameraStream(null);
       }
     };
 

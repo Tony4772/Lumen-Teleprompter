@@ -1,18 +1,12 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { RecordedTake } from '../types';
-import {
-  setSharedCameraStream,
-  getSharedCameraStream,
-  releaseSharedCameraStreamSync,
-  setPreviewCaptureAllowed,
-  isAppleTouchDevice,
-} from '../utils/cameraStreamStore';
+import { getSharedCameraStream, setSharedCameraStream, isAppleTouchDevice } from '../utils/cameraStreamStore';
 
 export const getSupportedVideoMimeType = (): string => {
   if (typeof window === 'undefined' || typeof MediaRecorder === 'undefined') {
     return '';
   }
-  // Escritorio: WebM. iPhone/Safari: MP4 primero.
+  // Escritorio: WebM (preview del modal). iPhone: MP4.
   const apple = isAppleTouchDevice();
   const webmTypes = [
     'video/webm;codecs=vp9,opus',
@@ -34,15 +28,11 @@ export const getSupportedVideoMimeType = (): string => {
   return '';
 };
 
-function isAppleTouchDeviceLocal(): boolean {
-  return isAppleTouchDevice();
-}
-
 function buildVideoFile(blob: Blob, customFilename?: string): File {
   const rawType = (blob.type || '').toLowerCase();
   const isMp4 = rawType.includes('mp4');
   const isWebm = rawType.includes('webm');
-  const ext = isMp4 ? 'mp4' : isWebm ? 'webm' : isAppleTouchDeviceLocal() ? 'mp4' : 'webm';
+  const ext = isMp4 ? 'mp4' : isWebm ? 'webm' : isAppleTouchDevice() ? 'mp4' : 'webm';
   const mime = rawType.startsWith('video/')
     ? rawType.split(';')[0]
     : ext === 'mp4'
@@ -66,10 +56,6 @@ export type SaveVideoResult = {
   message: string;
 };
 
-/**
- * En iPhone el <a download> NO guarda bien en Archivos.
- * Usamos Web Share (Compartir → Guardar en Archivos / Guardar Video).
- */
 export async function saveRecordedVideo(
   blob: Blob,
   customFilename?: string
@@ -83,7 +69,7 @@ export async function saveRecordedVideo(
   }
 
   const file = buildVideoFile(blob, customFilename);
-  const preferShare = isAppleTouchDeviceLocal();
+  const preferShare = isAppleTouchDevice();
 
   const canShareFiles =
     preferShare &&
@@ -102,15 +88,14 @@ export async function saveRecordedVideo(
       return {
         ok: true,
         method: 'share',
-        message:
-          'En el menú de iPhone elige “Guardar en Archivos” o “Guardar Video” (Fotos). Luego busca por el nombre del archivo.',
+        message: 'En el menú elige “Guardar en Archivos” o “Guardar Video”.',
       };
     } catch (err: any) {
       if (err?.name === 'AbortError') {
         return {
           ok: false,
           method: 'cancelled',
-          message: 'No se guardó: cancelaste el menú de compartir.',
+          message: 'Cancelaste el menú de compartir.',
         };
       }
     }
@@ -133,9 +118,7 @@ export async function saveRecordedVideo(
     return {
       ok: true,
       method: 'download',
-      message: isAppleTouchDeviceLocal()
-        ? 'Si no lo ves en Archivos, vuelve a tocar Guardar y elige “Guardar en Archivos”.'
-        : `Descarga iniciada: ${file.name}`,
+      message: `Descarga iniciada: ${file.name}`,
     };
   } catch {
     return {
@@ -146,7 +129,6 @@ export async function saveRecordedVideo(
   }
 }
 
-/** @deprecated usar saveRecordedVideo */
 export const downloadRecordedVideo = (blob: Blob, customFilename?: string) => {
   void saveRecordedVideo(blob, customFilename);
 };
@@ -173,17 +155,9 @@ export const useVideoRecorder = ({
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingStartTimeRef = useRef<number>(0);
   const activeStreamRef = useRef<MediaStream | null>(null);
-  const preparedStreamRef = useRef<MediaStream | null>(null);
   const ownedAudioTracksRef = useRef<MediaStreamTrack[]>([]);
-  const startingLockRef = useRef(false);
   const onFinishedRef = useRef(onRecordingFinished);
   onFinishedRef.current = onRecordingFinished;
-
-  useEffect(() => {
-    if (!recorderError) return;
-    const t = window.setTimeout(() => setRecorderError(null), 7000);
-    return () => window.clearTimeout(t);
-  }, [recorderError]);
 
   useEffect(() => {
     return () => {
@@ -199,136 +173,55 @@ export const useVideoRecorder = ({
   }, []);
 
   /**
-   * Debe llamarse DENTRO del gesto del usuario (toque Iniciar).
-   * En iPhone, getUserMedia DESPUÉS de la cuenta regresiva falla con NotAllowedError.
+   * Flujo que funcionaba: reutilizar la cámara del preview y sumar mic si se puede.
+   * No abre un segundo getUserMedia de video (eso rompe iPhone).
    */
-  const prepareRecordingStream = useCallback(async (): Promise<boolean> => {
-    setRecorderError(null);
-
-    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-      setRecorderError('Este navegador no puede usar la cámara.');
-      return false;
-    }
-
-    const existing =
-      preparedStreamRef.current || activeStreamRef.current || getSharedCameraStream();
-    if (
-      existing &&
-      existing.getVideoTracks().some((t) => t.readyState === 'live') &&
-      existing.getAudioTracks().some((t) => t.readyState === 'live')
-    ) {
-      setPreviewCaptureAllowed(false);
-      existing.getAudioTracks().forEach((t) => {
-        t.enabled = true;
-      });
-      preparedStreamRef.current = existing;
-      activeStreamRef.current = existing;
-      setSharedCameraStream(existing, { stopPrevious: false });
-      return true;
-    }
-
-    // Evitar que la preview abra otro getUserMedia encima
-    setPreviewCaptureAllowed(false);
-    // Liberar preview video-only YA (sync) para no bloquear el AV
-    releaseSharedCameraStreamSync();
-
-    try {
-      // Constraints simples: en iOS opciones avanzadas de audio suelen romper el permiso
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user' },
-        audio: true,
-      });
-
-      if (stream.getVideoTracks().length === 0) {
-        stream.getTracks().forEach((t) => t.stop());
-        setPreviewCaptureAllowed(true);
-        setRecorderError('No se abrió la cámara. Toca Iniciar otra vez.');
-        return false;
-      }
-      if (stream.getAudioTracks().length === 0) {
-        stream.getTracks().forEach((t) => t.stop());
-        setPreviewCaptureAllowed(true);
-        setRecorderError('No se abrió el micrófono. Toca Iniciar y elige Permitir.');
-        return false;
-      }
-
-      preparedStreamRef.current = stream;
-      activeStreamRef.current = stream;
-      ownedAudioTracksRef.current = stream.getAudioTracks();
-      setSharedCameraStream(stream, { stopPrevious: false });
-      return true;
-    } catch (err: any) {
-      console.error('prepareRecordingStream:', err?.name || err);
-      setPreviewCaptureAllowed(true);
-      setRecorderError(
-        err?.name === 'NotAllowedError'
-          ? 'Toca Permitir cámara y micrófono, luego Iniciar otra vez.'
-          : 'No se pudo abrir cámara/mic. Toca Iniciar otra vez.'
-      );
-      return false;
-    }
-  }, []);
-
-  /** Arranca MediaRecorder sobre el stream YA preparado (sin nuevo getUserMedia tras countdown). */
   const startRecording = useCallback(
-    async (_existingStream?: MediaStream | null, _options?: { videoOnly?: boolean }) => {
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-        return true;
-      }
-      if (startingLockRef.current) {
-        return false;
-      }
-      startingLockRef.current = true;
+    async (existingStream?: MediaStream | null, options?: { videoOnly?: boolean }) => {
       setRecorderError(null);
       recordedChunksRef.current = [];
+      ownedAudioTracksRef.current = [];
+      const videoOnly = Boolean(options?.videoOnly);
 
       if (typeof MediaRecorder === 'undefined') {
         setRecorderError('Este navegador no puede grabar video.');
         setIsRecording(false);
-        startingLockRef.current = false;
         return false;
       }
 
       try {
-        let stream =
-          preparedStreamRef.current ||
-          activeStreamRef.current ||
-          getSharedCameraStream() ||
-          null;
+        const shared = existingStream || getSharedCameraStream();
+        let stream: MediaStream;
 
-        const streamOk =
-          !!stream &&
-          stream.getVideoTracks().some((t) => t.readyState === 'live') &&
-          stream.getAudioTracks().some((t) => t.readyState === 'live');
+        if (shared && shared.getVideoTracks().some((t) => t.readyState === 'live')) {
+          const videoTrack = shared.getVideoTracks()[0];
+          const tracks: MediaStreamTrack[] = [videoTrack];
 
-        if (!streamOk) {
-          const prepared = await prepareRecordingStream();
-          if (!prepared) {
-            startingLockRef.current = false;
-            setIsRecording(false);
-            return false;
+          if (!videoOnly) {
+            try {
+              const audioOnly = await navigator.mediaDevices.getUserMedia({
+                audio: true,
+                video: false,
+              });
+              const audioTracks = audioOnly.getAudioTracks();
+              ownedAudioTracksRef.current = audioTracks;
+              tracks.push(...audioTracks);
+            } catch {
+              // Seguir con video aunque el mic falle (toma muda mejor que nada)
+            }
           }
-          stream = preparedStreamRef.current;
+
+          stream = new MediaStream(tracks);
+        } else {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user' },
+            audio: !videoOnly,
+          });
+          ownedAudioTracksRef.current = stream.getAudioTracks();
+          setSharedCameraStream(stream, { stopPrevious: true });
         }
 
-        if (!stream) {
-          setRecorderError('No hay cámara lista. Toca Iniciar otra vez.');
-          startingLockRef.current = false;
-          setIsRecording(false);
-          return false;
-        }
-
-        setSharedCameraStream(stream, { stopPrevious: false });
-        stream.getAudioTracks().forEach((t) => {
-          t.enabled = true;
-        });
-        stream.getVideoTracks().forEach((t) => {
-          t.enabled = true;
-        });
-        ownedAudioTracksRef.current = stream.getAudioTracks();
         activeStreamRef.current = stream;
-        preparedStreamRef.current = stream;
-
         const mimeType = getSupportedVideoMimeType();
         const recorderOptions: MediaRecorderOptions = mimeType ? { mimeType } : {};
 
@@ -347,13 +240,13 @@ export const useVideoRecorder = ({
         };
 
         recorder.onerror = () => {
-          setRecorderError('Se interrumpió la grabación. Toca Iniciar otra vez.');
+          setRecorderError('Error durante la grabación. Intenta de nuevo.');
         };
 
         recorder.onstop = () => {
           ownedAudioTracksRef.current.forEach((t) => {
             try {
-              t.enabled = false;
+              t.stop();
             } catch {
               // ignore
             }
@@ -362,16 +255,16 @@ export const useVideoRecorder = ({
 
           const chunks = recordedChunksRef.current;
           if (!chunks.length) {
-            setRecorderError('No quedó video. Toca Iniciar e inténtalo otra vez.');
+            setRecorderError('No se generó video. Permite la cámara y vuelve a Iniciar.');
             setIsRecording(false);
             return;
           }
 
           const finalMimeType =
-            mimeType || recorder.mimeType || chunks[0]?.type || 'video/mp4';
+            mimeType || recorder.mimeType || chunks[0]?.type || 'video/webm';
           const blob = new Blob(chunks, { type: finalMimeType.split(';')[0] });
           if (blob.size < 1000) {
-            setRecorderError('La toma quedó vacía. Toca Iniciar e inténtalo otra vez.');
+            setRecorderError('La grabación quedó vacía. Intenta de nuevo.');
             setIsRecording(false);
             return;
           }
@@ -404,46 +297,33 @@ export const useVideoRecorder = ({
           onFinishedRef.current?.(newTake);
         };
 
-        // En iPhone, start(timeslice) a veces falla o deja tomas vacías
         try {
-          if (isAppleTouchDevice()) {
-            recorder.start();
-          } else {
-            recorder.start(1000);
-          }
+          recorder.start(1000);
         } catch {
-          try {
-            recorder.start();
-          } catch (e) {
-            console.error('MediaRecorder.start failed', e);
-            setRecorderError('No se pudo iniciar el grabador. Toca Iniciar otra vez.');
-            startingLockRef.current = false;
-            setIsRecording(false);
-            return false;
-          }
+          recorder.start();
         }
-
         recordingStartTimeRef.current = Date.now();
         setIsRecording(true);
         setRecordingSeconds(0);
-        setRecorderError(null);
 
         if (timerRef.current) clearInterval(timerRef.current);
         timerRef.current = setInterval(() => {
           setRecordingSeconds((prev) => prev + 1);
         }, 1000);
 
-        startingLockRef.current = false;
         return true;
       } catch (err: any) {
         console.error('Error starting video recording:', err);
-        setRecorderError('No se pudo grabar. Toca Iniciar otra vez.');
+        setRecorderError(
+          err?.name === 'NotAllowedError'
+            ? 'Necesitamos permiso de cámara. Toca Permitir e Iniciar otra vez.'
+            : 'No se pudo grabar. Toca Iniciar otra vez.'
+        );
         setIsRecording(false);
-        startingLockRef.current = false;
         return false;
       }
     },
-    [scriptId, scriptTitle, prepareRecordingStream]
+    [scriptId, scriptTitle]
   );
 
   const stopRecording = useCallback(() => {
@@ -471,9 +351,7 @@ export const useVideoRecorder = ({
     setIsRecording(false);
   }, []);
 
-  const clearLatestTake = useCallback(() => {
-    setLatestTake(null);
-  }, []);
+  const clearLatestTake = useCallback(() => setLatestTake(null), []);
 
   const deleteTakeFromHistory = useCallback((takeId: string) => {
     setTakesHistory((prev) => {
@@ -483,7 +361,7 @@ export const useVideoRecorder = ({
         try {
           URL.revokeObjectURL(target.url);
         } catch {
-          // Ignored
+          // ignore
         }
       }
       return filtered;
@@ -497,7 +375,7 @@ export const useVideoRecorder = ({
         try {
           URL.revokeObjectURL(t.url);
         } catch {
-          // Ignored
+          // ignore
         }
       });
       return [];
@@ -514,7 +392,6 @@ export const useVideoRecorder = ({
     takesHistory,
     recorderError,
     clearRecorderError,
-    prepareRecordingStream,
     startRecording,
     stopRecording,
     clearLatestTake,

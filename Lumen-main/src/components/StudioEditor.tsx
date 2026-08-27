@@ -7,7 +7,6 @@ import {
   Download, 
   Upload, 
   Sparkles, 
-  Tag, 
   Clock, 
   Check, 
   FolderOpen,
@@ -29,19 +28,9 @@ interface StudioEditorProps {
   onDeleteScript: (id: string) => void;
   onCloneScript: (script: Script) => void;
   onOpenAIModal: () => void;
-  onInsertCue: (cueTag: string) => void;
   onLaunchPrompter?: () => void;
   onOpenDonation?: () => void;
 }
-
-const COMMON_CUES = [
-  { label: 'Pausa 2s', tag: '[PAUSA 2s]', style: 'bg-white text-[#121212] border-[#E0DDD5] hover:bg-[#121212] hover:text-white' },
-  { label: 'Mirar Cámara', tag: '[MIRAR A CÁMARA]', style: 'bg-[#E5E2D9] text-[#121212] border-[#D6D2C4] hover:bg-[#121212] hover:text-white' },
-  { label: 'Sonreír', tag: '[SONREÍR]', style: 'bg-white text-[#121212] border-[#E0DDD5] hover:bg-[#121212] hover:text-white' },
-  { label: 'Énfasis', tag: '[ÉNFASIS]', style: 'bg-[#121212] text-white border-[#121212]' },
-  { label: 'Cambio Slide', tag: '[CAMBIO SLIDE]', style: 'bg-white text-[#121212] border-[#E0DDD5] hover:bg-[#121212] hover:text-white' },
-  { label: 'Respirar', tag: '[RESPIRAR PROFUNDO]', style: 'bg-[#E5E2D9] text-[#121212] border-[#D6D2C4] hover:bg-[#121212] hover:text-white' },
-];
 
 export const StudioEditor: React.FC<StudioEditorProps> = ({
   scripts,
@@ -83,30 +72,6 @@ export const StudioEditor: React.FC<StudioEditorProps> = ({
       title: e.target.value,
       updatedAt: new Date().toISOString(),
     });
-  };
-
-  const handleInsertCue = (tag: string) => {
-    if (!textareaRef.current || !activeScript) return;
-    const textarea = textareaRef.current;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const currentText = activeScript.content;
-
-    const newText =
-      currentText.substring(0, start) +
-      `\n${tag}\n` +
-      currentText.substring(end);
-
-    onUpdateScript({
-      ...activeScript,
-      content: newText,
-      updatedAt: new Date().toISOString(),
-    });
-
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + tag.length + 2, start + tag.length + 2);
-    }, 50);
   };
 
   const handleExportTxt = () => {
@@ -291,31 +256,13 @@ export const StudioEditor: React.FC<StudioEditorProps> = ({
         )}
       </div>
 
-      {/* Speaker Cue Inserter Ribbon (Editorial Style) */}
-      <div className="px-3 py-1.5 bg-[#EFECE6] border-b border-[#E0DDD5] flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
-        <span className="text-[8px] font-mono text-[#666] tracking-widest uppercase shrink-0 mr-1 flex items-center gap-1">
-          <Tag className="w-2.5 h-2.5 text-[#121212]" />
-          CUES:
-        </span>
-        {COMMON_CUES.map((cue) => (
-          <button
-            key={cue.tag}
-            onClick={() => handleInsertCue(cue.tag)}
-            className={`px-2 py-0.5 rounded-xs text-[9px] font-mono font-bold tracking-wider uppercase border shrink-0 transition-all shadow-2xs ${cue.style}`}
-          >
-            {cue.label}
-          </button>
-        ))}
-      </div>
-
       {/* Script Text Area (Editorial Paper) */}
       <div className="flex-1 p-3 sm:p-4 overflow-hidden flex flex-col bg-[#F9F7F2] relative">
         <textarea
           ref={textareaRef}
           value={activeScript?.content || ''}
           onChange={handleTextChange}
-          placeholder="Escribe o pega aquí el guión de tu teleprompter...
-Usa corchetes para agregar anotaciones escénicas, como [PAUSA 2s] o [MIRAR A CÁMARA]."
+          placeholder="Escribe o pega aquí el guión de tu teleprompter…"
           className={`w-full h-full p-4 sm:p-6 bg-white text-[#121212] text-sm sm:text-base leading-relaxed rounded-xs border border-[#E0DDD5] focus:border-[#121212] focus:outline-none resize-none shadow-editorial custom-scrollbar ${
             editorFont === 'serif' ? 'font-serif' : editorFont === 'mono' ? 'font-mono' : 'font-sans'
           }`}
