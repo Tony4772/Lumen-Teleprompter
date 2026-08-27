@@ -167,24 +167,12 @@ export function beginAvCaptureFromUserGesture(): Promise<MediaStream> {
   setAudioSessionPlayAndRecord();
   const shared = getSharedCameraStream();
 
-  // Chrome iOS: el 2º getUserMedia({audio}) con cámara abierta falla → toma muda.
-  // Soltar y pedir AV juntos (puede parpadear; el teleprompter sigue).
-  if (isChromeOnApple()) {
-    if (shared && isLive(shared, 'video') && isLive(shared, 'audio')) {
-      shared.getTracks().forEach((t) => {
-        t.enabled = true;
-      });
-      pendingMicStream = new MediaStream(shared.getAudioTracks());
-      return Promise.resolve(shared);
-    }
-    if (shared) {
-      releaseSharedCameraStreamSync();
-    }
-    return requestStrictAvStream().catch(async (err) => {
-      const restored = await restoreVideoOnlyPreview();
-      if (restored) return restored;
-      throw err;
+  if (shared && isLive(shared, 'video') && isLive(shared, 'audio')) {
+    shared.getTracks().forEach((t) => {
+      t.enabled = true;
     });
+    pendingMicStream = new MediaStream(shared.getAudioTracks());
+    return Promise.resolve(shared);
   }
 
   if (shared && isLive(shared, 'video')) {
@@ -192,9 +180,21 @@ export function beginAvCaptureFromUserGesture(): Promise<MediaStream> {
       t.enabled = true;
     });
 
-    if (isLive(shared, 'audio')) {
-      pendingMicStream = new MediaStream(shared.getAudioTracks());
-      return Promise.resolve(shared);
+    // Chrome iOS: no abre mic con cámara ocupada → AV fresco obligatorio.
+    // Safari/Edge: primero mic aparte; si falla, mismo fallback AV.
+    const reopenAv = () => {
+      releaseSharedCameraStreamSync();
+      return requestStrictAvStream().catch(async (err) => {
+        console.warn('[lumen] AV reopen failed:', err);
+        const restored = await restoreVideoOnlyPreview();
+        if (restored) return restored;
+        throw err;
+      });
+    };
+
+    if (isChromeOnApple()) {
+      console.info('[lumen] Chrome iOS: reopening camera+mic together');
+      return reopenAv();
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -202,8 +202,14 @@ export function beginAvCaptureFromUserGesture(): Promise<MediaStream> {
     }
 
     return requestMicInGesture()
-      .then(() => shared)
-      .catch(() => shared);
+      .then(() => {
+        console.info('[lumen] mic attached beside camera');
+        return shared;
+      })
+      .catch((err) => {
+        console.warn('[lumen] mic-only failed, reopening AV:', err);
+        return reopenAv();
+      });
   }
 
   if (!navigator.mediaDevices?.getUserMedia) {
@@ -229,6 +235,21 @@ export function beginAvCaptureFromUserGesture(): Promise<MediaStream> {
       navigator.mediaDevices
         .getUserMedia({ video: { facingMode: 'user' }, audio: false })
         .then((stream) => {
+          if (isChromeOnApple()) {
+            // No conservar video-only en Chrome: pedir AV de nuevo
+            stream.getTracks().forEach((t) => {
+              try {
+                t.stop();
+              } catch {
+                // ignore
+              }
+            });
+            return requestStrictAvStream().catch(async () => {
+              const restored = await restoreVideoOnlyPreview();
+              if (restored) return restored;
+              throw new Error('NO_AUDIO');
+            });
+          }
           setSharedCameraStream(stream, { stopPrevious: true });
           return requestMicInGesture()
             .then(() => stream)

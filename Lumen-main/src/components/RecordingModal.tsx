@@ -63,33 +63,52 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
     }
   }, [isOpen, take, takesHistory]);
 
-  // Forzar primer frame visible en Edge / Chromium
+  // Edge/Chrome: forzar decodificación del primer frame (autoplay muted + pause)
   useEffect(() => {
     if (!isOpen) return;
     const el = previewRef.current;
     const takeId = selectedTake?.id || take?.id;
     if (!el || !takeId) return;
 
-    const showFrame = () => {
+    let cancelled = false;
+    const reveal = async () => {
       try {
-        if (el.readyState >= 1 && el.currentTime < 0.05) {
-          el.currentTime = 0.05;
-        }
+        el.muted = true;
+        el.defaultMuted = true;
+        el.playsInline = true;
+        await el.play();
+        if (cancelled) return;
+        // Un instante de reproducción decodifica el frame; luego pausar
+        window.setTimeout(() => {
+          if (cancelled) return;
+          try {
+            el.pause();
+            if (el.currentTime < 0.05) el.currentTime = 0.05;
+            el.muted = false;
+          } catch {
+            // ignore
+          }
+        }, 120);
       } catch {
-        // ignore
+        try {
+          if (el.readyState >= 1) el.currentTime = 0.05;
+        } catch {
+          // ignore
+        }
       }
     };
 
-    el.addEventListener('loadedmetadata', showFrame);
-    el.addEventListener('loadeddata', showFrame);
+    el.addEventListener('loadeddata', reveal);
     try {
       el.load();
     } catch {
       // ignore
     }
+    void reveal();
+
     return () => {
-      el.removeEventListener('loadedmetadata', showFrame);
-      el.removeEventListener('loadeddata', showFrame);
+      cancelled = true;
+      el.removeEventListener('loadeddata', reveal);
     };
   }, [isOpen, selectedTake?.id, take?.id]);
 
