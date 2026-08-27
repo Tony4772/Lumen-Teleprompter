@@ -138,7 +138,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
     const setupCamera = async () => {
       if (!isCameraEnabled) return;
 
-      // Si el grabador ya abrió un stream AV, reutilizarlo
+      // Preferir stream del grabador (video+audio). Nunca abrir otro getUserMedia encima.
       const existing = getSharedCameraStream();
       if (existing && existing.getVideoTracks().some((t) => t.readyState === 'live')) {
         stream = existing;
@@ -158,14 +158,34 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
+        // Si el grabador ya publicó un stream AV mientras esperábamos, descartar preview-only
+        const fromRecorder = getSharedCameraStream();
+        if (
+          fromRecorder &&
+          fromRecorder !== stream &&
+          fromRecorder.getVideoTracks().some((t) => t.readyState === 'live')
+        ) {
+          stream.getTracks().forEach((t) => t.stop());
+          stream = fromRecorder;
+          ownsStream = false;
+          attachToVideo(fromRecorder);
+          return;
+        }
         ownsStream = true;
         setSharedCameraStream(stream);
         attachToVideo(stream);
       } catch (err) {
         console.warn('Webcam not accessible:', err);
         setIsCameraReady(false);
-        setCameraError('No se pudo acceder a la cámara web.');
-        setSharedCameraStream(null);
+        const fromRecorder = getSharedCameraStream();
+        if (fromRecorder && fromRecorder.getVideoTracks().some((t) => t.readyState === 'live')) {
+          stream = fromRecorder;
+          ownsStream = false;
+          attachToVideo(fromRecorder);
+          setCameraError(null);
+          return;
+        }
+        setCameraError('No se pudo acceder a la cámara.');
       }
     };
 

@@ -23,6 +23,7 @@ import { useSpeechFollower } from './hooks/useSpeechFollower';
 import { useVideoRecorder } from './hooks/useVideoRecorder';
 import { countWords, estimateDurationSeconds } from './utils/prompterUtils';
 import { AudioRehearsalEngine } from './utils/speechSynthesis';
+import { releaseSharedCameraStream } from './utils/cameraStreamStore';
 import { Play, Pause } from 'lucide-react';
 
 const STORAGE_KEY_SCRIPTS = 'lumen_teleprompter_scripts_v1';
@@ -243,27 +244,24 @@ export default function App() {
     return () => clearCountdown();
   }, [clearCountdown]);
 
-  /** After countdown: start camera recording + scroll together. */
+  /** After countdown: grabar primero (1 stream AV), luego mostrar preview. */
   const beginPlayAndRecord = useCallback(async () => {
-    const needsCamera = !settings.cameraOverlay && mode !== 'camera';
-    if (needsCamera) {
-      setSettings((prev) => ({ ...prev, cameraOverlay: true }));
-      await new Promise((r) => setTimeout(r, 500));
-    }
-
-    // Si Voz estaba activa, apagarla: el mic debe ir a la grabación (con audio)
     if (settings.speechTracking) {
       setSettings((prev) => ({ ...prev, speechTracking: false }));
-      setVoiceBanner('Voz pausada: el micrófono se usa para grabar el video con audio.');
-      window.setTimeout(() => setVoiceBanner(null), 4000);
     }
 
-    // Siempre grabar CON audio (videoOnly: false)
+    // NO abrir preview antes: en iPhone eso bloquea la grabación con audio.
     const started = await startRecording(undefined, { videoOnly: false });
-    setPlaybackStatus('playing');
 
-    if (!started) {
-      console.warn('Grabación no iniciada');
+    if (started) {
+      // Ahora sí mostrar cámara (usa el stream que ya abrió el grabador)
+      if (!settings.cameraOverlay && mode !== 'camera') {
+        setSettings((prev) => ({ ...prev, cameraOverlay: true }));
+      }
+      setPlaybackStatus('playing');
+    } else {
+      // No fingir que está grabando
+      setPlaybackStatus('paused');
     }
   }, [settings.cameraOverlay, settings.speechTracking, mode, startRecording]);
 
@@ -288,6 +286,8 @@ export default function App() {
     // Start from idle / paused / completed
     if (settings.countdownSeconds > 0 && playbackStatus === 'idle') {
       clearCountdown();
+      // Liberar cámara ahora: en iPhone da tiempo a que suelte antes de grabar AV
+      void releaseSharedCameraStream(0);
       setPlaybackStatus('countdown');
       let currentCount = settings.countdownSeconds;
       setCountdownNumber(currentCount);
@@ -776,9 +776,9 @@ export default function App() {
           <button
             type="button"
             onClick={clearRecorderError}
-            className="px-3 py-2 rounded-xs bg-amber-500 text-black text-[11px] font-mono font-bold shadow-editorial text-center"
+            className="px-3 py-2 rounded-xs bg-neutral-900/90 text-white text-[11px] font-mono shadow-editorial text-center border border-white/20"
           >
-            {recorderError} (tocar para cerrar)
+            {recorderError}
           </button>
         </div>
       )}
