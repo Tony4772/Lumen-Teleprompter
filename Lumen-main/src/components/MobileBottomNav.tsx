@@ -2,24 +2,19 @@ import React from 'react';
 import { 
   FileEdit, 
   Tv, 
-  FlipHorizontal, 
   Camera, 
   FolderOpen, 
-  Sparkles,
-  Settings
+  Heart,
 } from 'lucide-react';
-import { PrompterMode, PlaybackStatus } from '../types';
+import { PrompterMode } from '../types';
 
 interface MobileBottomNavProps {
   currentScreen: 'editor' | 'prompter' | 'library';
   mode: PrompterMode;
   onSetScreen: (screen: 'editor' | 'prompter' | 'library') => void;
   onSetMode: (mode: PrompterMode) => void;
-  playbackStatus: PlaybackStatus;
-  onTogglePlay: () => void;
-  onOpenAIModal: () => void;
-  onOpenSettings: () => void;
   onOpenLibrary: () => void;
+  onOpenDonation?: () => void;
 }
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
@@ -27,122 +22,106 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   mode,
   onSetScreen,
   onSetMode,
-  playbackStatus,
-  onTogglePlay,
-  onOpenAIModal,
-  onOpenSettings,
   onOpenLibrary,
+  onOpenDonation,
 }) => {
   const triggerHaptic = () => {
     if (typeof window !== 'undefined' && 'vibrate' in navigator) {
       try {
         navigator.vibrate(12);
-      } catch (e) {
-        // Ignored if not permitted
+      } catch {
+        // Ignored
       }
     }
   };
 
+  const tabClass = (active: boolean) =>
+    `flex-1 py-1 flex flex-col items-center justify-center gap-0.5 min-h-[48px] rounded-xs transition-all active:scale-95 ${
+      active ? 'text-[#121212] font-bold' : 'text-[#888] hover:text-[#121212]'
+    }`;
+
+  const iconWrap = (active: boolean) =>
+    `p-1.5 rounded-full transition-all ${active ? 'bg-[#121212] text-white shadow-xs' : 'bg-transparent'}`;
+
+  const isReading = currentScreen === 'prompter' && (mode === 'fullscreen' || mode === 'mirror');
+
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#F9F7F2]/95 backdrop-blur-md border-t border-[#E0DDD5] px-1 py-1 safe-bottom flex items-center justify-around shadow-editorial select-none">
-      
-      {/* Tab 1: Editor Screen */}
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#F9F7F2]/95 backdrop-blur-md border-t border-[#E0DDD5] px-1 py-1.5 safe-bottom flex items-center justify-around shadow-editorial select-none">
       <button
+        type="button"
         onClick={() => {
           triggerHaptic();
           onSetScreen('editor');
           onSetMode('studio');
         }}
-        className={`flex-1 py-1 flex flex-col items-center justify-center gap-0.5 min-h-[40px] rounded-xs transition-all active:scale-95 ${
-          currentScreen === 'editor' && mode === 'studio'
-            ? 'text-[#121212] font-bold'
-            : 'text-[#888] hover:text-[#121212]'
-        }`}
+        className={tabClass(currentScreen === 'editor' && mode === 'studio')}
       >
-        <div className={`p-1 rounded-full transition-all ${
-          currentScreen === 'editor' && mode === 'studio' ? 'bg-[#121212] text-white shadow-xs' : 'bg-transparent'
-        }`}>
-          <FileEdit className="w-3.5 h-3.5" />
+        <div className={iconWrap(currentScreen === 'editor' && mode === 'studio')}>
+          <FileEdit className="w-4 h-4" />
         </div>
-        <span className="text-[9px] uppercase tracking-wider font-semibold">Edit</span>
+        <span className="text-[9px] uppercase tracking-wider font-semibold">Editor</span>
       </button>
 
-      {/* Tab 2: Prompter Pro Screen */}
       <button
+        type="button"
         onClick={() => {
           triggerHaptic();
           onSetScreen('prompter');
-          onSetMode('fullscreen');
+          onSetMode(mode === 'mirror' ? 'mirror' : 'fullscreen');
         }}
-        className={`flex-1 py-1 flex flex-col items-center justify-center gap-0.5 min-h-[40px] rounded-xs transition-all active:scale-95 ${
-          currentScreen === 'prompter' && mode === 'fullscreen'
-            ? 'text-[#121212] font-bold'
-            : 'text-[#888] hover:text-[#121212]'
-        }`}
+        className={tabClass(isReading)}
       >
-        <div className={`p-1 rounded-full transition-all ${
-          currentScreen === 'prompter' && mode === 'fullscreen' ? 'bg-[#121212] text-white shadow-xs' : 'bg-transparent'
-        }`}>
-          <Tv className="w-3.5 h-3.5" />
+        <div className={iconWrap(isReading)}>
+          <Tv className="w-4 h-4" />
         </div>
-        <span className="text-[9px] uppercase tracking-wider font-semibold">Pro</span>
+        <span className="text-[9px] uppercase tracking-wider font-semibold">Lectura</span>
       </button>
 
-      {/* Tab 3: Mirror Mode Screen */}
       <button
-        onClick={() => {
-          triggerHaptic();
-          onSetScreen('prompter');
-          onSetMode('mirror');
-        }}
-        className={`flex-1 py-1 flex flex-col items-center justify-center gap-0.5 min-h-[40px] rounded-xs transition-all active:scale-95 ${
-          currentScreen === 'prompter' && mode === 'mirror'
-            ? 'text-[#121212] font-bold'
-            : 'text-[#888] hover:text-[#121212]'
-        }`}
-      >
-        <div className={`p-1 rounded-full transition-all ${
-          currentScreen === 'prompter' && mode === 'mirror' ? 'bg-[#121212] text-white shadow-xs' : 'bg-transparent'
-        }`}>
-          <FlipHorizontal className="w-3.5 h-3.5" />
-        </div>
-        <span className="text-[9px] uppercase tracking-wider font-semibold">Espejo</span>
-      </button>
-
-      {/* Tab 4: Camera Overlay Screen */}
-      <button
+        type="button"
         onClick={() => {
           triggerHaptic();
           onSetScreen('prompter');
           onSetMode('camera');
         }}
-        className={`flex-1 py-1 flex flex-col items-center justify-center gap-0.5 min-h-[40px] rounded-xs transition-all active:scale-95 ${
-          currentScreen === 'prompter' && mode === 'camera'
-            ? 'text-[#121212] font-bold'
-            : 'text-[#888] hover:text-[#121212]'
-        }`}
+        className={tabClass(currentScreen === 'prompter' && mode === 'camera')}
       >
-        <div className={`p-1 rounded-full transition-all ${
-          currentScreen === 'prompter' && mode === 'camera' ? 'bg-[#121212] text-white shadow-xs' : 'bg-transparent'
-        }`}>
-          <Camera className="w-3.5 h-3.5" />
+        <div className={iconWrap(currentScreen === 'prompter' && mode === 'camera')}>
+          <Camera className="w-4 h-4" />
         </div>
         <span className="text-[9px] uppercase tracking-wider font-semibold">Cámara</span>
       </button>
 
-      {/* Tab 5: Scripts Library Screen */}
       <button
+        type="button"
         onClick={() => {
           triggerHaptic();
           onOpenLibrary();
         }}
-        className="flex-1 py-1 flex flex-col items-center justify-center gap-0.5 min-h-[40px] rounded-xs text-[#888] hover:text-[#121212] active:scale-95 transition-all"
+        className="flex-1 py-1 flex flex-col items-center justify-center gap-0.5 min-h-[48px] rounded-xs text-[#888] hover:text-[#121212] active:scale-95 transition-all"
       >
-        <div className="p-1 rounded-full bg-transparent">
-          <FolderOpen className="w-3.5 h-3.5" />
+        <div className="p-1.5 rounded-full bg-transparent">
+          <FolderOpen className="w-4 h-4" />
         </div>
         <span className="text-[9px] uppercase tracking-wider font-semibold">Docs</span>
       </button>
+
+      {onOpenDonation && (
+        <button
+          type="button"
+          onClick={() => {
+            triggerHaptic();
+            onOpenDonation();
+          }}
+          className="flex-1 py-1 flex flex-col items-center justify-center gap-0.5 min-h-[48px] rounded-xs text-red-600 active:scale-95 transition-all"
+          title="Donar desde S/ 1"
+        >
+          <div className="p-1.5 rounded-full bg-red-600 text-white shadow-xs">
+            <Heart className="w-4 h-4 fill-current" />
+          </div>
+          <span className="text-[9px] uppercase tracking-wider font-bold">Donar</span>
+        </button>
+      )}
     </nav>
   );
 };

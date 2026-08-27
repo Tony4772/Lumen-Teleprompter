@@ -315,39 +315,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="flex flex-col gap-3 pt-3 border-t border-[#E0DDD5]">
                   {/* Layout Selector */}
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs text-[#121212] font-semibold">Disposición de la Cámara:</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <button
-                        onClick={() => onUpdateSettings({ cameraLayout: 'side-by-side' })}
-                        className={`p-2.5 rounded-xs border text-left flex flex-col gap-1 transition-all ${
-                          settings.cameraLayout === 'side-by-side' || !settings.cameraLayout
-                            ? 'border-[#121212] bg-[#EFECE6]'
-                            : 'border-[#E0DDD5] bg-white hover:bg-[#F9F7F2]'
-                        }`}
-                      >
-                        <div className="flex items-center gap-1.5 font-bold text-xs text-[#121212]">
-                          <Columns className="w-3.5 h-3.5" />
-                          <span>Al Lado (Split)</span>
-                        </div>
-                        <span className="text-[10px] text-[#666] leading-tight">
-                          Mitad cámara, mitad texto (Recomendado)
-                        </span>
-                      </button>
-
+                    <label className="text-xs text-[#121212] font-semibold">¿Cómo quieres ver la cámara?</label>
+                    <p className="text-[10px] text-[#666] -mt-1 mb-1">
+                      También puedes cambiar esto en la barra «Vista de cámara» sobre el teleprómpter.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <button
                         onClick={() => onUpdateSettings({ cameraLayout: 'pip' })}
                         className={`p-2.5 rounded-xs border text-left flex flex-col gap-1 transition-all ${
-                          settings.cameraLayout === 'pip'
+                          settings.cameraLayout === 'pip' || !settings.cameraLayout
                             ? 'border-[#121212] bg-[#EFECE6]'
                             : 'border-[#E0DDD5] bg-white hover:bg-[#F9F7F2]'
                         }`}
                       >
                         <div className="flex items-center gap-1.5 font-bold text-xs text-[#121212]">
                           <Tv className="w-3.5 h-3.5" />
-                          <span>Flotante (PiP)</span>
+                          <span>Flotante</span>
                         </div>
                         <span className="text-[10px] text-[#666] leading-tight">
-                          Cuadro flotante en la esquina
+                          Ventana arrastrable (recomendado)
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => onUpdateSettings({ cameraLayout: 'side-by-side' })}
+                        className={`p-2.5 rounded-xs border text-left flex flex-col gap-1 transition-all ${
+                          settings.cameraLayout === 'side-by-side'
+                            ? 'border-[#121212] bg-[#EFECE6]'
+                            : 'border-[#E0DDD5] bg-white hover:bg-[#F9F7F2]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 font-bold text-xs text-[#121212]">
+                          <Columns className="w-3.5 h-3.5" />
+                          <span>Dividido</span>
+                        </div>
+                        <span className="text-[10px] text-[#666] leading-tight">
+                          Mitad cámara, mitad texto
                         </span>
                       </button>
 
@@ -364,14 +367,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           <span>Fondo</span>
                         </div>
                         <span className="text-[10px] text-[#666] leading-tight">
-                          Translúcido detrás del texto
+                          Cámara detrás del texto
                         </span>
                       </button>
                     </div>
                   </div>
 
                   {/* Position selector for side-by-side */}
-                  {(settings.cameraLayout === 'side-by-side' || !settings.cameraLayout) && (
+                  {(settings.cameraLayout === 'side-by-side') && (
                     <div className="flex flex-col gap-1.5 pt-2">
                       <label className="text-xs text-[#121212] font-semibold">Posición de la Cámara:</label>
                       <div className="grid grid-cols-2 gap-2">

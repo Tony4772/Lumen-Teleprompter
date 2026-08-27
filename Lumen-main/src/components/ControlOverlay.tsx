@@ -39,6 +39,8 @@ interface ControlOverlayProps {
   onToggleVoice: () => void;
   isCameraActive: boolean;
   onToggleCamera: () => void;
+  isMirrorActive?: boolean;
+  onToggleMirror?: () => void;
   isMobileScreen?: boolean;
   isRecording?: boolean;
   recordingSeconds?: number;
@@ -62,6 +64,8 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
   onToggleVoice,
   isCameraActive,
   onToggleCamera,
+  isMirrorActive = false,
+  onToggleMirror,
   isMobileScreen = false,
   isRecording = false,
   recordingSeconds = 0,
@@ -321,6 +325,42 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
               )}
             </button>
           )}
+
+          {/* Mirror mode — accessible from controls (removed from crowded mobile tab bar) */}
+          {onToggleMirror && (
+            <button
+              onClick={() => {
+                triggerHaptic(15);
+                onToggleMirror();
+              }}
+              className={`h-10 px-3 rounded-full border flex items-center gap-1.5 font-mono text-[10px] font-bold transition-all shadow-2xs active:scale-95 ${
+                isMirrorActive
+                  ? 'bg-[#121212] text-white border-[#121212]'
+                  : 'bg-white text-[#121212] border-[#E0DDD5] hover:border-[#121212]'
+              }`}
+              title="Modo espejo para teleprompter físico"
+            >
+              <FlipHorizontal className="w-3.5 h-3.5" />
+              <span className="hidden xs:inline">Espejo</span>
+            </button>
+          )}
+
+          {/* Camera quick toggle */}
+          <button
+            onClick={() => {
+              triggerHaptic(15);
+              onToggleCamera();
+            }}
+            className={`h-10 px-3 rounded-full border flex items-center gap-1.5 font-mono text-[10px] font-bold transition-all shadow-2xs active:scale-95 ${
+              isCameraActive
+                ? 'bg-amber-400 text-black border-amber-300'
+                : 'bg-white text-[#121212] border-[#E0DDD5] hover:border-[#121212]'
+            }`}
+            title="Activar / desactivar cámara"
+          >
+            <Camera className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{isCameraActive ? 'Cam ON' : 'Cámara'}</span>
+          </button>
         </div>
 
         {/* PROMINENT SPEED REGULATOR & FONT CONTROLS (Desktop) */}

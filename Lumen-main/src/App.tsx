@@ -41,7 +41,7 @@ const DEFAULT_SETTINGS: PrompterSettings = {
   readerLineColor: '#00d1ff',
   countdownSeconds: 3,
   cameraOverlay: false,
-  cameraLayout: 'side-by-side',
+  cameraLayout: 'pip',
   cameraPosition: 'left',
   cameraMirror: true,
   cameraFramingGuides: true,
@@ -384,6 +384,13 @@ export default function App() {
           setMode(m);
           if (m === 'studio') setMobileScreen('editor');
           else setMobileScreen('prompter');
+          if (m === 'camera') {
+            setSettings((prev) => ({
+              ...prev,
+              cameraOverlay: true,
+              cameraLayout: prev.cameraLayout || 'pip',
+            }));
+          }
         }}
         playbackStatus={playbackStatus}
         onTogglePlay={handleTogglePlay}
@@ -406,6 +413,7 @@ export default function App() {
         activeScriptTitle={activeScript?.title || 'Sin Título'}
         wpm={settings.wpm}
         onUpdateWpm={(newWpm) => handleUpdateSettings({ wpm: newWpm })}
+        onUpdateSettings={handleUpdateSettings}
         isRecording={isRecording}
         recordingSeconds={recordingSeconds}
         onToggleRecord={handleToggleRecord}
@@ -500,7 +508,22 @@ export default function App() {
             isVoiceActive={settings.speechTracking}
             onToggleVoice={() => setSettings((s) => ({ ...s, speechTracking: !s.speechTracking }))}
             isCameraActive={settings.cameraOverlay || mode === 'camera'}
-            onToggleCamera={() => setSettings((s) => ({ ...s, cameraOverlay: !s.cameraOverlay }))}
+            onToggleCamera={() => setSettings((s) => ({
+              ...s,
+              cameraOverlay: !s.cameraOverlay,
+              cameraLayout: s.cameraLayout || 'pip',
+            }))}
+            isMirrorActive={mode === 'mirror' || settings.mirrorX}
+            onToggleMirror={() => {
+              if (mode === 'mirror') {
+                setMode('fullscreen');
+                setSettings((s) => ({ ...s, mirrorX: false }));
+              } else {
+                setMode('mirror');
+                setMobileScreen('prompter');
+                setSettings((s) => ({ ...s, mirrorX: true }));
+              }
+            }}
             isMobileScreen={true}
             isRecording={isRecording}
             recordingSeconds={recordingSeconds}
@@ -516,12 +539,18 @@ export default function App() {
         currentScreen={mobileScreen}
         mode={mode}
         onSetScreen={(s) => setMobileScreen(s)}
-        onSetMode={(m) => setMode(m)}
-        playbackStatus={playbackStatus}
-        onTogglePlay={handleTogglePlay}
-        onOpenAIModal={() => setIsAIOpen(true)}
-        onOpenSettings={() => setIsSettingsOpen(true)}
+        onSetMode={(m) => {
+          setMode(m);
+          if (m === 'camera') {
+            setSettings((prev) => ({
+              ...prev,
+              cameraOverlay: true,
+              cameraLayout: prev.cameraLayout || 'pip',
+            }));
+          }
+        }}
         onOpenLibrary={() => setIsLibraryOpen(true)}
+        onOpenDonation={() => setIsDonationOpen(true)}
       />
 
       {/* Modals & Dialogs */}

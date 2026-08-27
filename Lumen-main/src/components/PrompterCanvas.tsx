@@ -19,7 +19,9 @@ import {
   VideoOff,
   X,
   Square,
-  Film
+  Film,
+  PictureInPicture2,
+  Image as ImageIcon
 } from 'lucide-react';
 
 interface PrompterCanvasProps {
@@ -350,7 +352,13 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
   const isMirroredX = isMirrorMode || settings.mirrorX;
   const isMirroredY = settings.mirrorY;
 
-  // Webcam Sub-Component View with framing guides and quick controls
+  const layoutOptions: { id: CameraLayout; label: string; hint: string; icon: React.ReactNode }[] = [
+    { id: 'pip', label: 'Flotante', hint: 'Ventana arrastrable', icon: <PictureInPicture2 className="w-3.5 h-3.5" /> },
+    { id: 'side-by-side', label: 'Dividido', hint: 'Mitad y mitad', icon: <Columns className="w-3.5 h-3.5" /> },
+    { id: 'background', label: 'Fondo', hint: 'Detrás del texto', icon: <ImageIcon className="w-3.5 h-3.5" /> },
+  ];
+
+  // Webcam surface: video + guides. Layout switching lives in the always-visible bar below.
   const renderWebcamSurface = (layout: CameraLayout) => {
     const isFloating = layout === 'pip';
     const isBackground = layout === 'background';
@@ -359,7 +367,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
       <div
         className={`relative overflow-hidden bg-[#0a0a0a] flex items-center justify-center ${
           isFloating
-            ? 'w-full h-full rounded-xs shadow-2xl border-2 border-white/40 touch-none'
+            ? 'w-full h-full rounded-md shadow-2xl border-2 border-white/50 touch-none'
             : 'w-full h-full'
         }`}
         onPointerDown={(e) => {
@@ -389,7 +397,6 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
           e.currentTarget.releasePointerCapture(e.pointerId);
         }}
       >
-        {/* Video element */}
         <video
           ref={videoRef}
           autoPlay
@@ -400,104 +407,86 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
           }`}
         />
 
-        {/* Background mode dimming overlay */}
         {isBackground && <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" />}
 
-        {/* Camera Framing Guides Overlay */}
-        {settings.cameraFramingGuides && (
-          <div className="absolute inset-0 pointer-events-none z-10 flex flex-col justify-between">
-            <div className="absolute inset-0 flex justify-between px-[33.3%] pointer-events-none">
-              <div className="w-[1px] h-full bg-white/20 border-r border-white/10" />
-              <div className="w-[1px] h-full bg-white/20 border-r border-white/10" />
+        {settings.cameraFramingGuides && !isBackground && (
+          <div className="absolute inset-0 pointer-events-none z-10">
+            <div className="absolute inset-0 flex justify-between px-[33.3%]">
+              <div className="w-[1px] h-full bg-white/20" />
+              <div className="w-[1px] h-full bg-white/20" />
             </div>
-            <div className="absolute top-[32%] left-0 right-0 border-t border-dashed border-amber-400/60 z-10 flex items-center justify-between px-3">
-              <span className="text-[8px] font-mono uppercase tracking-widest text-amber-300 bg-black/40 backdrop-blur-xs px-1.5 py-0.5 rounded-full flex items-center gap-1">
+            <div className="absolute top-[32%] left-0 right-0 border-t border-dashed border-amber-400/60 flex items-center px-3">
+              <span className="text-[8px] font-mono uppercase tracking-widest text-amber-300 bg-black/50 px-1.5 py-0.5 rounded-full flex items-center gap-1">
                 <Eye className="w-2.5 h-2.5" />
-                <span>Nivel Ojos</span>
+                Nivel ojos
               </span>
             </div>
             <div className="absolute top-[66.6%] left-0 right-0 border-t border-white/20" />
           </div>
         )}
 
-        {/* Floating Camera Header Bar (Always present if layout is not background, or on hover if background) */}
-        <div className="absolute top-2 left-2 right-2 z-20 flex items-center justify-between pointer-events-auto">
-          {/* Status Label */}
-          <div className="flex items-center gap-1.5 bg-black/70 backdrop-blur-md border border-white/20 px-2 py-0.5 rounded-full text-white text-[9px] font-mono font-bold tracking-wider">
-            {isRecording ? (
-              <span className="flex items-center gap-1 text-red-400"><span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" /> GRABANDO</span>
-            ) : (
-              <span className="opacity-70">LISTO</span>
-            )}
-          </div>
+        {/* Compact chrome only on visible surfaces (not background — those controls are blocked by pointer-events) */}
+        {!isBackground && onUpdateSettings && (
+          <div className="absolute top-2 left-2 right-2 z-20 flex items-center justify-between pointer-events-auto">
+            <div className="flex items-center gap-1.5 bg-black/75 backdrop-blur-md border border-white/20 px-2 py-0.5 rounded-full text-white text-[9px] font-mono font-bold tracking-wider">
+              {isRecording ? (
+                <span className="flex items-center gap-1 text-red-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" /> REC
+                </span>
+              ) : isFloating ? (
+                <span className="opacity-80">Arrastra</span>
+              ) : (
+                <span className="opacity-70">Cámara</span>
+              )}
+            </div>
 
-          {/* New Clearly Labeled Control Group */}
-          {onUpdateSettings && (
-            <div className="flex items-center gap-1 bg-black/90 backdrop-blur-2xl border border-white/40 p-1.5 rounded-sm text-white shadow-2xl z-50">
-              {/* Swap Side (Only in split mode) */}
+            <div className="flex items-center gap-0.5 bg-black/90 backdrop-blur-xl border border-white/30 p-1 rounded-md text-white shadow-xl">
               {layout === 'side-by-side' && (
                 <button
+                  type="button"
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
                     triggerHaptic(10);
                     onUpdateSettings({ cameraPosition: settings.cameraPosition === 'left' ? 'right' : 'left' });
                   }}
-                  className="flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xs hover:bg-white/20 transition-colors"
-                  title="Mover al otro lado"
+                  className="flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xs hover:bg-white/20"
+                  title="Cambiar lado"
                 >
-                  <ArrowLeftRight className="w-4 h-4" />
-                  <span className="text-[8px] uppercase font-bold tracking-tighter">Lado</span>
+                  <ArrowLeftRight className="w-3.5 h-3.5" />
+                  <span className="text-[7px] uppercase font-bold">Lado</span>
                 </button>
               )}
-
-              {/* Toggle Guides */}
               <button
+                type="button"
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
                   triggerHaptic(10);
                   onUpdateSettings({ cameraFramingGuides: !settings.cameraFramingGuides });
                 }}
-                className={`flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xs transition-colors ${settings.cameraFramingGuides ? 'bg-amber-500 text-black' : 'hover:bg-white/20'}`}
+                className={`flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xs ${settings.cameraFramingGuides ? 'bg-amber-500 text-black' : 'hover:bg-white/20'}`}
+                title="Guías de encuadre"
               >
-                <Grid className="w-4 h-4" />
-                <span className="text-[8px] uppercase font-bold tracking-tighter">Guías</span>
+                <Grid className="w-3.5 h-3.5" />
+                <span className="text-[7px] uppercase font-bold">Guías</span>
               </button>
-
-              {/* Toggle Mirror */}
               <button
+                type="button"
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
                   triggerHaptic(10);
                   onUpdateSettings({ cameraMirror: !(settings.cameraMirror !== false) });
                 }}
-                className={`flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xs transition-colors ${settings.cameraMirror !== false ? 'bg-white/30' : 'hover:bg-white/20'}`}
+                className={`flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xs ${settings.cameraMirror !== false ? 'bg-white/25' : 'hover:bg-white/20'}`}
+                title="Espejo de cámara"
               >
-                <FlipHorizontal className="w-4 h-4" />
-                <span className="text-[8px] uppercase font-bold tracking-tighter">Espejo</span>
+                <FlipHorizontal className="w-3.5 h-3.5" />
+                <span className="text-[7px] uppercase font-bold">Espejo</span>
               </button>
-
-              {/* Cycle Layout */}
               <button
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  triggerHaptic(10);
-                  const layouts: CameraLayout[] = ['side-by-side', 'pip', 'background'];
-                  const currentIdx = layouts.indexOf(settings.cameraLayout || 'side-by-side');
-                  const nextLayout = layouts[(currentIdx + 1) % layouts.length];
-                  onUpdateSettings({ cameraLayout: nextLayout });
-                }}
-                className={`flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xs hover:bg-white/20 transition-colors ${settings.cameraLayout !== 'side-by-side' ? 'text-amber-400' : ''}`}
-              >
-                <Columns className="w-4 h-4" />
-                <span className="text-[8px] uppercase font-bold tracking-tighter">Diseño</span>
-              </button>
-
-              {/* Close Camera */}
-              <button
+                type="button"
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -505,14 +494,15 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
                   onUpdateSettings({ cameraOverlay: false });
                   if (onSetMode) onSetMode('fullscreen');
                 }}
-                className="flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xs bg-red-600 hover:bg-red-500 transition-colors"
+                className="flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xs bg-red-600 hover:bg-red-500"
+                title="Cerrar cámara"
               >
-                <X className="w-4 h-4" />
-                <span className="text-[8px] uppercase font-bold tracking-tighter">Cerrar</span>
+                <X className="w-3.5 h-3.5" />
+                <span className="text-[7px] uppercase font-bold">Cerrar</span>
               </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {cameraError && (
           <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-4 text-center text-white z-30">
@@ -736,6 +726,62 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
         </div>
       )}
 
+      {/* Always-visible camera layout switcher (fixes stuck "Fondo" mode where video has pointer-events-none) */}
+      {isCameraEnabled && onUpdateSettings && (
+        <div
+          className="absolute top-14 md:top-auto md:bottom-4 left-1/2 -translate-x-1/2 z-50 pointer-events-auto px-2 w-full max-w-sm sm:max-w-md"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="bg-[#121212]/95 backdrop-blur-xl border border-white/25 rounded-xl shadow-2xl p-1.5 flex flex-col gap-1.5">
+            <div className="flex items-center justify-between px-2 pt-0.5">
+              <span className="text-[9px] font-mono uppercase tracking-widest text-white/60 font-bold">
+                Vista de cámara
+              </span>
+              {settings.cameraLayout === 'background' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic(15);
+                    onUpdateSettings({ cameraOverlay: false });
+                    if (onSetMode) onSetMode('fullscreen');
+                  }}
+                  className="text-[9px] font-mono font-bold uppercase tracking-wider text-red-300 hover:text-red-200 flex items-center gap-1"
+                >
+                  <X className="w-3 h-3" /> Cerrar
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-1">
+              {layoutOptions.map((opt) => {
+                const active = (settings.cameraLayout || 'pip') === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(12);
+                      onUpdateSettings({ cameraLayout: opt.id, cameraOverlay: true });
+                    }}
+                    className={`flex flex-col items-center gap-0.5 px-2 py-2 rounded-lg transition-all ${
+                      active
+                        ? 'bg-amber-400 text-black shadow-md'
+                        : 'bg-white/10 text-white hover:bg-white/20'
+                    }`}
+                    title={opt.hint}
+                  >
+                    {opt.icon}
+                    <span className="text-[10px] font-bold leading-tight">{opt.label}</span>
+                    <span className={`text-[8px] leading-tight ${active ? 'text-black/70' : 'text-white/50'}`}>
+                      {opt.hint}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top Progress Bar */}
       {settings.showProgressBar && (
         <div className="absolute top-0 left-0 right-0 h-1 bg-[#121212]/20 z-30 pointer-events-none">
@@ -871,7 +917,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
               triggerHaptic(15);
               onUpdateSettings({ 
                 cameraOverlay: !isCameraEnabled,
-                cameraLayout: settings.cameraLayout || 'side-by-side'
+                cameraLayout: settings.cameraLayout || 'pip'
               });
             }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md border text-xs font-mono font-bold shadow-editorial transition-all ${

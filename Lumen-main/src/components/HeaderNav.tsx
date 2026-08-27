@@ -47,6 +47,7 @@ interface HeaderNavProps {
   activeScriptTitle: string;
   wpm?: number;
   onUpdateWpm?: (wpm: number) => void;
+  onUpdateSettings?: (partial: { cameraOverlay?: boolean; cameraLayout?: 'side-by-side' | 'pip' | 'background' }) => void;
   isRecording?: boolean;
   recordingSeconds?: number;
   onToggleRecord?: () => void;
@@ -78,6 +79,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
   activeScriptTitle,
   wpm = 135,
   onUpdateWpm,
+  onUpdateSettings,
   isRecording = false,
   recordingSeconds = 0,
   onToggleRecord,
@@ -166,14 +168,14 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
         <button
           onClick={() => {
             onSetMode('camera');
-            onUpdateSettings?.({ cameraOverlay: true, cameraLayout: 'side-by-side' });
+            onUpdateSettings?.({ cameraOverlay: true, cameraLayout: 'pip' });
           }}
           className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] font-bold rounded-xs transition-all ${
             mode === 'camera'
               ? 'bg-white text-[#121212] shadow-xs border border-[#D6D2C4]'
               : 'text-[#666] hover:text-[#121212] hover:bg-white/50'
           }`}
-          title="Modo Cámara: Grabación con referencia visual"
+          title="Modo Cámara: ventana flotante por defecto (cambia a Dividido o Fondo abajo)"
         >
           <Camera className="w-3.5 h-3.5 text-[#121212]" />
           <span>Cámara</span>
@@ -181,14 +183,13 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
       </nav>
 
       {/* Quick Tool Actions */}
-      <div className="flex items-center gap-2 sm:gap-3">
-        {/* Prominent Header Speed Regulator Widget */}
+      <div className="flex items-center gap-1.5 sm:gap-3">
+        {/* Prominent Header Speed Regulator Widget — desktop only to reduce clutter */}
         {onUpdateWpm && (
-          <div className="flex items-center gap-1 bg-[#EFECE6] border border-[#E0DDD5] px-2 py-1 rounded-full text-xs font-mono shadow-2xs">
+          <div className="hidden md:flex items-center gap-1 bg-[#EFECE6] border border-[#E0DDD5] px-2 py-1 rounded-full text-xs font-mono shadow-2xs">
             <span className="text-[10px] font-bold text-[#121212] flex items-center gap-1">
               <Gauge className="w-3.5 h-3.5 text-[#121212]" />
-              <span className="hidden xs:inline">{wpm} WPM</span>
-              <span className="xs:hidden">{wpm}</span>
+              <span>{wpm} WPM</span>
             </span>
             <div className="flex items-center gap-0.5 ml-1 border-l border-[#D6D2C4] pl-1">
               <button
@@ -209,12 +210,12 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
           </div>
         )}
 
-        {/* Recording Button (Primary Action) */}
+        {/* Recording Button */}
         {onToggleRecord && (
           <div className="flex items-center gap-1.5">
             <button
               onClick={onToggleRecord}
-              className={`flex items-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-full text-xs font-mono font-bold transition-all shadow-editorial ${
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full text-xs font-mono font-bold transition-all shadow-editorial ${
                 isRecording
                   ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse border border-red-400'
                   : 'bg-white hover:bg-red-50 text-red-600 border border-red-200 hover:border-red-400'
@@ -225,20 +226,16 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
                 <>
                   <Square className="w-3.5 h-3.5 fill-current" />
                   <span>{formatRecTime(recordingSeconds)}</span>
-                  <span className="text-[9px] uppercase tracking-wider bg-black/40 px-1.5 py-0.5 rounded-xs">
-                    DETENER
-                  </span>
                 </>
               ) : (
                 <>
                   <span className="w-2.5 h-2.5 rounded-full bg-red-600" />
-                  <span className="hidden sm:inline">Grabar Video</span>
+                  <span className="hidden sm:inline">Grabar</span>
                   <span className="sm:hidden">REC</span>
                 </>
               )}
             </button>
 
-            {/* Saved Takes Modal Opener */}
             {takesCount > 0 && onOpenRecordingModal && (
               <button
                 onClick={onOpenRecordingModal}
@@ -252,10 +249,10 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
           </div>
         )}
 
-        {/* Playback status chip */}
+        {/* Playback status chip — desktop */}
         <button
           onClick={onTogglePlay}
-          className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] uppercase tracking-widest font-mono font-bold transition-all border ${
+          className={`hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] uppercase tracking-widest font-mono font-bold transition-all border ${
             playbackStatus === 'playing'
               ? 'bg-[#121212] text-white border-[#121212] shadow-sm'
               : 'bg-white text-[#666] border-[#E0DDD5] hover:text-[#121212] hover:border-[#121212]'
@@ -274,10 +271,10 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
           )}
         </button>
 
-        {/* Voice Follow Toggle */}
+        {/* Voice Follow — tablet+ */}
         <button
           onClick={onToggleVoice}
-          className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all relative ${
+          className={`hidden sm:flex w-9 h-9 rounded-full border items-center justify-center transition-all relative ${
             isVoiceActive
               ? 'bg-[#121212] text-white border-[#121212]'
               : 'bg-white text-[#555] border-[#E0DDD5] hover:border-[#121212] hover:text-[#121212]'
@@ -290,33 +287,32 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
           )}
         </button>
 
-        {/* Donation Button (Culqi & Yape for EBYZOM E.I.R.L.) */}
+        {/* Donation — always visible on mobile */}
         {onOpenDonation && (
           <button
             onClick={onOpenDonation}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-linear-to-r from-red-600 to-rose-700 hover:from-red-700 hover:to-rose-800 text-white text-xs font-mono font-bold transition-all shadow-editorial active:scale-95 border border-red-500/50"
-            title="Hacer una donación voluntaria a EBYZOM E.I.R.L. con Tarjeta o Yape (desde S/ 1)"
+            className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-full bg-linear-to-r from-red-600 to-rose-700 hover:from-red-700 hover:to-rose-800 text-white text-xs font-mono font-bold transition-all shadow-editorial active:scale-95 border border-red-500/50 shrink-0"
+            title="Donación voluntaria a EBYZOM E.I.R.L. (desde S/ 1)"
           >
-            <Heart className="w-3.5 h-3.5 fill-current text-white animate-pulse" />
-            <span className="hidden md:inline">Donar</span>
-            <span className="text-[10px] bg-white/20 px-1 py-0.2 rounded-xs font-normal">S/ 1+</span>
+            <Heart className="w-3.5 h-3.5 fill-current text-white" />
+            <span>Donar</span>
           </button>
         )}
 
         {/* AI Script Assistant */}
         <button
           onClick={onOpenAIModal}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#121212] hover:bg-[#2a2a2a] text-white text-[10px] uppercase tracking-widest font-bold transition-all shadow-xs"
-          title="Asistente de Guiones con IA Gemini 3.7"
+          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full bg-[#121212] hover:bg-[#2a2a2a] text-white text-[10px] uppercase tracking-widest font-bold transition-all shadow-xs shrink-0"
+          title="Asistente de Guiones con IA"
         >
           <Sparkles className="w-3.5 h-3.5 text-[#F9F7F2]" />
-          <span className="hidden sm:inline">IA Guionista</span>
+          <span className="hidden md:inline">IA</span>
         </button>
 
-        {/* Audio Rehearsal TTS */}
+        {/* Audio Rehearsal — desktop */}
         <button
           onClick={onToggleAudioRehearsal}
-          className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all ${
+          className={`hidden md:flex w-9 h-9 rounded-full border items-center justify-center transition-all ${
             isAudioRehearsing
               ? 'bg-[#121212] text-white border-[#121212]'
               : 'bg-white text-[#555] border-[#E0DDD5] hover:border-[#121212] hover:text-[#121212]'
@@ -326,39 +322,35 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
           <Volume2 className="w-4 h-4" />
         </button>
 
-        {/* User Manual */}
         {onOpenManual && (
           <button
             onClick={onOpenManual}
-            className="w-9 h-9 rounded-full bg-white border border-[#E0DDD5] text-[#555] hover:border-[#121212] hover:text-[#121212] flex items-center justify-center transition-colors hidden sm:flex"
+            className="w-9 h-9 rounded-full bg-white border border-[#E0DDD5] text-[#555] hover:border-[#121212] hover:text-[#121212] hidden lg:flex items-center justify-center transition-colors"
             title="Manual de Usuario"
           >
             <BookOpen className="w-4 h-4" />
           </button>
         )}
 
-        {/* Keyboard Shortcuts */}
         <button
           onClick={onOpenShortcuts}
-          className="w-9 h-9 rounded-full bg-white border border-[#E0DDD5] text-[#555] hover:border-[#121212] hover:text-[#121212] flex items-center justify-center transition-colors hidden sm:flex"
+          className="w-9 h-9 rounded-full bg-white border border-[#E0DDD5] text-[#555] hover:border-[#121212] hover:text-[#121212] hidden lg:flex items-center justify-center transition-colors"
           title="Atajos de Teclado"
         >
           <Keyboard className="w-4 h-4" />
         </button>
 
-        {/* Settings Modal */}
         <button
           onClick={onOpenSettings}
-          className="w-9 h-9 rounded-full bg-white border border-[#E0DDD5] text-[#555] hover:border-[#121212] hover:text-[#121212] flex items-center justify-center transition-colors"
-          title="Configuración de Teleprompter"
+          className="w-9 h-9 rounded-full bg-white border border-[#E0DDD5] text-[#555] hover:border-[#121212] hover:text-[#121212] flex items-center justify-center transition-colors shrink-0"
+          title="Configuración"
         >
           <Settings className="w-4 h-4" />
         </button>
 
-        {/* Fullscreen Toggle */}
         <button
           onClick={onToggleFullscreen}
-          className="w-9 h-9 rounded-full bg-white border border-[#E0DDD5] text-[#555] hover:border-[#121212] hover:text-[#121212] flex items-center justify-center transition-colors"
+          className="hidden sm:flex w-9 h-9 rounded-full bg-white border border-[#E0DDD5] text-[#555] hover:border-[#121212] hover:text-[#121212] items-center justify-center transition-colors"
           title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
         >
           {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
