@@ -109,19 +109,22 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
           </span>
         </div>
 
-        {/* Clickable Script Pill */}
+        {/* Clickable Script Pill — desktop; mobile uses Menú → Guiones */}
         {onOpenLibrary && (
           <button
             onClick={onOpenLibrary}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#EFECE6] hover:bg-[#E5E2D9] border border-[#E0DDD5] text-[#121212] transition-colors max-w-[140px] xs:max-w-[200px] sm:max-w-[260px] truncate"
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#EFECE6] hover:bg-[#E5E2D9] border border-[#E0DDD5] text-[#121212] transition-colors max-w-[260px] truncate"
             title="Abrir Biblioteca de Guiones"
           >
-            <span className="text-[9px] uppercase tracking-wider text-[#888] font-mono hidden sm:inline">GUIÓN:</span>
+            <span className="text-[9px] uppercase tracking-wider text-[#888] font-mono hidden md:inline">GUIÓN:</span>
             <span className="text-xs font-serif italic font-semibold truncate">
               "{activeScriptTitle}"
             </span>
           </button>
         )}
+        <span className="sm:hidden text-xs font-serif italic text-[#666] truncate max-w-[42vw]">
+          {activeScriptTitle}
+        </span>
       </div>
 
       {/* Mode Switcher Tabs (Editorial Navigation) */}
@@ -182,177 +185,112 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
         </button>
       </nav>
 
-      {/* Quick Tool Actions */}
+      {/* Quick Tool Actions — mobile: solo ⚙ | desktop: herramientas completas */}
       <div className="flex items-center gap-1.5 sm:gap-3">
-        {/* Prominent Header Speed Regulator Widget — desktop only to reduce clutter */}
+        <button
+          onClick={onOpenSettings}
+          className="md:hidden w-10 h-10 rounded-full bg-white border border-[#E0DDD5] text-[#555] flex items-center justify-center shrink-0"
+          title="Configuración"
+        >
+          <Settings className="w-4 h-4" />
+        </button>
+
         {onUpdateWpm && (
           <div className="hidden md:flex items-center gap-1 bg-[#EFECE6] border border-[#E0DDD5] px-2 py-1 rounded-full text-xs font-mono shadow-2xs">
             <span className="text-[10px] font-bold text-[#121212] flex items-center gap-1">
-              <Gauge className="w-3.5 h-3.5 text-[#121212]" />
+              <Gauge className="w-3.5 h-3.5" />
               <span>{wpm} WPM</span>
             </span>
             <div className="flex items-center gap-0.5 ml-1 border-l border-[#D6D2C4] pl-1">
-              <button
-                onClick={() => onUpdateWpm(Math.max(10, wpm - 5))}
-                className="w-5 h-5 rounded-full bg-white hover:bg-[#121212] hover:text-white text-[#121212] flex items-center justify-center font-bold text-[10px] shadow-2xs transition-colors"
-                title="Reducir velocidad (-5 WPM)"
-              >
+              <button onClick={() => onUpdateWpm(Math.max(10, wpm - 5))} className="w-5 h-5 rounded-full bg-white hover:bg-[#121212] hover:text-white flex items-center justify-center">
                 <Minus className="w-2.5 h-2.5" />
               </button>
-              <button
-                onClick={() => onUpdateWpm(Math.min(320, wpm + 5))}
-                className="w-5 h-5 rounded-full bg-white hover:bg-[#121212] hover:text-white text-[#121212] flex items-center justify-center font-bold text-[10px] shadow-2xs transition-colors"
-                title="Aumentar velocidad (+5 WPM)"
-              >
+              <button onClick={() => onUpdateWpm(Math.min(320, wpm + 5))} className="w-5 h-5 rounded-full bg-white hover:bg-[#121212] hover:text-white flex items-center justify-center">
                 <Plus className="w-2.5 h-2.5" />
               </button>
             </div>
           </div>
         )}
 
-        {/* Recording Button */}
         {onToggleRecord && (
-          <div className="flex items-center gap-1.5">
+          <div className="hidden md:flex items-center gap-1.5">
             <button
               onClick={onToggleRecord}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full text-xs font-mono font-bold transition-all shadow-editorial ${
-                isRecording
-                  ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse border border-red-400'
-                  : 'bg-white hover:bg-red-50 text-red-600 border border-red-200 hover:border-red-400'
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-mono font-bold shadow-editorial ${
+                isRecording ? 'bg-red-600 text-white animate-pulse border border-red-400' : 'bg-white text-red-600 border border-red-200'
               }`}
-              title={isRecording ? 'Detener grabación de video' : 'Iniciar grabación de video HD'}
             >
               {isRecording ? (
-                <>
-                  <Square className="w-3.5 h-3.5 fill-current" />
-                  <span>{formatRecTime(recordingSeconds)}</span>
-                </>
+                <><Square className="w-3.5 h-3.5 fill-current" /><span>{formatRecTime(recordingSeconds)}</span></>
               ) : (
-                <>
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-600" />
-                  <span className="hidden sm:inline">Grabar</span>
-                  <span className="sm:hidden">REC</span>
-                </>
+                <><span className="w-2.5 h-2.5 rounded-full bg-red-600" /><span>Grabar</span></>
               )}
             </button>
-
             {takesCount > 0 && onOpenRecordingModal && (
-              <button
-                onClick={onOpenRecordingModal}
-                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white hover:bg-[#EFECE6] border border-[#D6D2C4] text-[#121212] text-xs font-mono font-bold transition-colors"
-                title="Ver tomas de video grabadas"
-              >
-                <Film className="w-3.5 h-3.5 text-[#121212]" />
-                <span>{takesCount}</span>
+              <button onClick={onOpenRecordingModal} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white border border-[#D6D2C4] text-xs font-mono font-bold">
+                <Film className="w-3.5 h-3.5" /><span>{takesCount}</span>
               </button>
             )}
           </div>
         )}
 
-        {/* Playback status chip — desktop */}
         <button
           onClick={onTogglePlay}
-          className={`hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] uppercase tracking-widest font-mono font-bold transition-all border ${
-            playbackStatus === 'playing'
-              ? 'bg-[#121212] text-white border-[#121212] shadow-sm'
-              : 'bg-white text-[#666] border-[#E0DDD5] hover:text-[#121212] hover:border-[#121212]'
+          className={`hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] uppercase tracking-widest font-mono font-bold border ${
+            playbackStatus === 'playing' ? 'bg-[#121212] text-white border-[#121212]' : 'bg-white text-[#666] border-[#E0DDD5]'
           }`}
         >
           {playbackStatus === 'playing' ? (
-            <>
-              <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-              <span>EN VIVO</span>
-            </>
+            <><span className="w-2 h-2 rounded-full bg-white animate-ping" /><span>EN VIVO</span></>
           ) : (
-            <>
-              <span className="w-2 h-2 rounded-full bg-[#999]" />
-              <span>PAUSA</span>
-            </>
+            <><span className="w-2 h-2 rounded-full bg-[#999]" /><span>PAUSA</span></>
           )}
         </button>
 
-        {/* Voice Follow — always visible */}
         <button
           onClick={onToggleVoice}
-          className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all relative shrink-0 ${
-            isVoiceActive
-              ? 'bg-emerald-500 text-black border-emerald-400'
-              : 'bg-white text-[#555] border-[#E0DDD5] hover:border-[#121212] hover:text-[#121212]'
+          className={`hidden md:flex w-9 h-9 rounded-full border items-center justify-center relative ${
+            isVoiceActive ? 'bg-emerald-500 text-black border-emerald-400' : 'bg-white text-[#555] border-[#E0DDD5]'
           }`}
-          title={isVoiceActive ? 'Seguimiento por voz ACTIVO — el texto sigue tu habla' : 'Activar seguimiento por voz (Chrome/Edge + micrófono)'}
         >
           <Mic className="w-4 h-4" />
-          {isVoiceActive && (
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-black rounded-full animate-pulse" />
-          )}
+          {isVoiceActive && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-black rounded-full animate-pulse" />}
         </button>
 
-        {/* Donation — always visible on mobile */}
         {onOpenDonation && (
-          <button
-            onClick={onOpenDonation}
-            className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-full bg-linear-to-r from-red-600 to-rose-700 hover:from-red-700 hover:to-rose-800 text-white text-xs font-mono font-bold transition-all shadow-editorial active:scale-95 border border-red-500/50 shrink-0"
-            title="Donación voluntaria a EBYZOM E.I.R.L. (desde S/ 1)"
-          >
-            <Heart className="w-3.5 h-3.5 fill-current text-white" />
-            <span>Donar</span>
+          <button onClick={onOpenDonation} className="hidden md:flex items-center gap-1 px-3 py-1.5 rounded-full bg-linear-to-r from-red-600 to-rose-700 text-white text-xs font-mono font-bold border border-red-500/50">
+            <Heart className="w-3.5 h-3.5 fill-current" /><span>Donar</span>
           </button>
         )}
 
-        {/* AI Script Assistant */}
-        <button
-          onClick={onOpenAIModal}
-          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full bg-[#121212] hover:bg-[#2a2a2a] text-white text-[10px] uppercase tracking-widest font-bold transition-all shadow-xs shrink-0"
-          title="Asistente de Guiones con IA"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-[#F9F7F2]" />
-          <span className="hidden md:inline">IA</span>
+        <button onClick={onOpenAIModal} className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#121212] text-white text-[10px] uppercase tracking-widest font-bold">
+          <Sparkles className="w-3.5 h-3.5" /><span>IA</span>
         </button>
 
-        {/* Audio Rehearsal — desktop */}
         <button
           onClick={onToggleAudioRehearsal}
-          className={`hidden md:flex w-9 h-9 rounded-full border items-center justify-center transition-all ${
-            isAudioRehearsing
-              ? 'bg-[#121212] text-white border-[#121212]'
-              : 'bg-white text-[#555] border-[#E0DDD5] hover:border-[#121212] hover:text-[#121212]'
+          className={`hidden md:flex w-9 h-9 rounded-full border items-center justify-center ${
+            isAudioRehearsing ? 'bg-[#121212] text-white border-[#121212]' : 'bg-white text-[#555] border-[#E0DDD5]'
           }`}
-          title={isAudioRehearsing ? 'Detener lectura de ensayo' : 'Escuchar ensayo de audio (TTS)'}
         >
           <Volume2 className="w-4 h-4" />
         </button>
 
         {onOpenManual && (
-          <button
-            onClick={onOpenManual}
-            className="w-9 h-9 rounded-full bg-white border border-[#E0DDD5] text-[#555] hover:border-[#121212] hover:text-[#121212] hidden lg:flex items-center justify-center transition-colors"
-            title="Manual de Usuario"
-          >
+          <button onClick={onOpenManual} className="w-9 h-9 rounded-full bg-white border border-[#E0DDD5] text-[#555] hidden lg:flex items-center justify-center">
             <BookOpen className="w-4 h-4" />
           </button>
         )}
 
-        <button
-          onClick={onOpenShortcuts}
-          className="w-9 h-9 rounded-full bg-white border border-[#E0DDD5] text-[#555] hover:border-[#121212] hover:text-[#121212] hidden lg:flex items-center justify-center transition-colors"
-          title="Atajos de Teclado"
-        >
+        <button onClick={onOpenShortcuts} className="w-9 h-9 rounded-full bg-white border border-[#E0DDD5] text-[#555] hidden lg:flex items-center justify-center">
           <Keyboard className="w-4 h-4" />
         </button>
 
-        <button
-          onClick={onOpenSettings}
-          className="w-9 h-9 rounded-full bg-white border border-[#E0DDD5] text-[#555] hover:border-[#121212] hover:text-[#121212] flex items-center justify-center transition-colors shrink-0"
-          title="Configuración"
-        >
+        <button onClick={onOpenSettings} className="hidden md:flex w-9 h-9 rounded-full bg-white border border-[#E0DDD5] text-[#555] items-center justify-center">
           <Settings className="w-4 h-4" />
         </button>
 
-        <button
-          onClick={onToggleFullscreen}
-          className="hidden sm:flex w-9 h-9 rounded-full bg-white border border-[#E0DDD5] text-[#555] hover:border-[#121212] hover:text-[#121212] items-center justify-center transition-colors"
-          title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
-        >
+        <button onClick={onToggleFullscreen} className="hidden md:flex w-9 h-9 rounded-full bg-white border border-[#E0DDD5] text-[#555] items-center justify-center">
           {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
         </button>
       </div>

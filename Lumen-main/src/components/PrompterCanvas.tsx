@@ -86,7 +86,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
   const [tapFeedback, setTapFeedback] = useState<{ x: number; y: number; type: 'play' | 'pause' | 'restart' } | null>(null);
   const [showCompletedBanner, setShowCompletedBanner] = useState(false);
   const [isSpeedHUDOpen, setIsSpeedHUDOpen] = useState(false);
-  const [pipPosition, setPipPosition] = useState({ x: 20, y: 70 }); // in px from top-right or similar
+  const [pipPosition, setPipPosition] = useState({ x: 12, y: 56 });
 
   // Touch gesture tracking for mobile swipe & double tap
   const lastTapTimeRef = useRef<number>(0);
@@ -479,9 +479,9 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
           </div>
         )}
 
-        {/* Compact chrome only on visible surfaces (not background — those controls are blocked by pointer-events) */}
+        {/* Compact chrome only on desktop surfaces — mobile keeps video clean */}
         {!isBackground && onUpdateSettings && (
-          <div className="absolute top-2 left-2 right-2 z-20 flex items-center justify-between pointer-events-auto">
+          <div className="hidden md:flex absolute top-2 left-2 right-2 z-20 items-center justify-between pointer-events-auto">
             <div className="flex items-center gap-1.5 bg-black/75 backdrop-blur-md border border-white/20 px-2 py-0.5 rounded-full text-white text-[9px] font-mono font-bold tracking-wider">
               {isRecording ? (
                 <span className="flex items-center gap-1 text-red-400">
@@ -769,7 +769,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
       {/* FLOATING PICTURE-IN-PICTURE (PIP) CAMERA MODE */}
       {isCameraEnabled && settings.cameraLayout === 'pip' && (
         <div
-          className="absolute z-30 w-52 sm:w-80 aspect-video shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+          className="absolute z-30 w-36 sm:w-52 md:w-80 aspect-video shadow-2xl animate-in fade-in zoom-in-95 duration-200"
           style={{
             left: `${pipPosition.x}px`,
             top: `${pipPosition.y}px`,
@@ -780,10 +780,10 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
         </div>
       )}
 
-      {/* Always-visible camera layout switcher (fixes stuck "Fondo" mode where video has pointer-events-none) */}
+      {/* Camera layout switcher — desktop only (on mobile: Menú → Vista de cámara) */}
       {isCameraEnabled && onUpdateSettings && (
         <div
-          className="absolute top-14 md:top-auto md:bottom-4 left-1/2 -translate-x-1/2 z-50 pointer-events-auto px-2 w-full max-w-sm sm:max-w-md"
+          className="hidden md:block absolute bottom-4 left-1/2 -translate-x-1/2 z-50 pointer-events-auto px-2 w-full max-w-md"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="bg-[#121212]/95 backdrop-blur-xl border border-white/25 rounded-xl shadow-2xl p-1.5 flex flex-col gap-1.5">
@@ -889,29 +889,16 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
         </div>
       )}
 
-      {/* Floating Back to Editor Button (Mobile Only) */}
-      {onSwitchToEditor && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            triggerHaptic(20);
-            onSwitchToEditor();
-          }}
-          className="md:hidden absolute top-4 left-4 z-40 px-3.5 py-1.5 rounded-full bg-[#121212]/90 backdrop-blur-md text-white border border-[#E0DDD5]/40 text-[10px] uppercase tracking-widest font-bold flex items-center gap-1.5 shadow-editorial active:scale-95 transition-all"
-        >
-          <ArrowRight className="w-3 h-3 rotate-180" />
-          <span>Editor</span>
-        </button>
-      )}
+      {/* Floating Back to Editor — removed on mobile (bottom nav has Editor) */}
 
-      {/* Top Floating Control Bar: Speed Regulator + Quick Webcam Launcher + Recording */}
+      {/* Top Floating Control Bar — desktop only; mobile uses bottom controls + Menú */}
       {onUpdateSettings && (
         <div 
-          className={`absolute z-40 flex items-center gap-2 transition-all ${
+          className={`hidden md:flex absolute z-40 items-center gap-2 transition-all ${
             isCameraEnabled && settings.cameraLayout === 'side-by-side'
               ? settings.cameraPosition === 'right'
-                ? 'top-[36%] md:top-4 right-3 md:right-1/2 md:mr-4'
-                : 'top-[36%] md:top-4 right-3 md:right-4'
+                ? 'top-4 right-1/2 mr-4'
+                : 'top-4 right-4'
               : 'top-4 right-4'
           }`}
         >

@@ -18,6 +18,7 @@ import { RecordingModal } from './components/RecordingModal';
 import { DonationModal } from './components/DonationModal';
 import { UserManualModal } from './components/UserManualModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
+import { MobileMoreSheet } from './components/MobileMoreSheet';
 import { useSpeechFollower } from './hooks/useSpeechFollower';
 import { useVideoRecorder } from './hooks/useVideoRecorder';
 import { countWords, estimateDurationSeconds } from './utils/prompterUtils';
@@ -104,6 +105,7 @@ export default function App() {
   const [isRecordingModalOpen, setIsRecordingModalOpen] = useState(false);
   const [isDonationOpen, setIsDonationOpen] = useState(false);
   const [isManualOpen, setIsManualOpen] = useState(false);
+  const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false);
 
   // Save scripts to localStorage
   useEffect(() => {
@@ -554,41 +556,94 @@ export default function App() {
         </div>
       )}
 
-      {/* Mobile Bottom Screen Switcher Navigation Bar */}
+      {/* Mobile Bottom Navigation: Editor | Lectura | Menú */}
       <MobileBottomNav
         currentScreen={mobileScreen}
         mode={mode}
         onSetScreen={(s) => setMobileScreen(s)}
-        onSetMode={(m) => {
-          setMode(m);
-          if (m === 'camera') {
-            setSettings((prev) => ({
-              ...prev,
-              cameraOverlay: true,
-              cameraLayout: prev.cameraLayout || 'pip',
-            }));
-          }
-        }}
-        onOpenLibrary={() => setIsLibraryOpen(true)}
-        onOpenDonation={() => setIsDonationOpen(true)}
+        onSetMode={(m) => setMode(m)}
+        onOpenMore={() => setIsMobileMoreOpen(true)}
+        isMoreOpen={isMobileMoreOpen}
       />
 
-      {/* Voice tracking feedback */}
+      <MobileMoreSheet
+        isOpen={isMobileMoreOpen}
+        onClose={() => setIsMobileMoreOpen(false)}
+        isCameraActive={settings.cameraOverlay || mode === 'camera'}
+        onToggleCamera={() => {
+          setSettings((s) => {
+            const turningOn = !s.cameraOverlay;
+            return {
+              ...s,
+              cameraOverlay: turningOn,
+              cameraLayout: turningOn ? 'pip' : s.cameraLayout,
+            };
+          });
+          if (!settings.cameraOverlay) {
+            setMobileScreen('prompter');
+            setMode('camera');
+          } else {
+            setMode('fullscreen');
+          }
+        }}
+        isMirrorActive={mode === 'mirror' || settings.mirrorX}
+        onToggleMirror={() => {
+          if (mode === 'mirror') {
+            setMode('fullscreen');
+            setSettings((s) => ({ ...s, mirrorX: false }));
+          } else {
+            setMode('mirror');
+            setMobileScreen('prompter');
+            setSettings((s) => ({ ...s, mirrorX: true }));
+          }
+        }}
+        isVoiceActive={settings.speechTracking}
+        onToggleVoice={() => setSettings((s) => ({ ...s, speechTracking: !s.speechTracking }))}
+        isRecording={isRecording}
+        recordingSeconds={recordingSeconds}
+        onToggleRecord={handleToggleRecord}
+        takesCount={takesHistory.length}
+        onOpenRecordingModal={() => setIsRecordingModalOpen(true)}
+        onOpenLibrary={() => setIsLibraryOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenAI={() => setIsAIOpen(true)}
+        onOpenDonation={() => setIsDonationOpen(true)}
+        cameraLayoutLabel={
+          settings.cameraLayout === 'side-by-side'
+            ? 'Dividido'
+            : settings.cameraLayout === 'background'
+            ? 'Fondo'
+            : 'Flotante'
+        }
+        onCycleCameraLayout={() => {
+          const order: Array<'pip' | 'side-by-side' | 'background'> = [
+            'pip',
+            'side-by-side',
+            'background',
+          ];
+          const idx = order.indexOf((settings.cameraLayout as 'pip' | 'side-by-side' | 'background') || 'pip');
+          const next = order[(idx + 1) % order.length];
+          setSettings((s) => ({ ...s, cameraLayout: next, cameraOverlay: true }));
+        }}
+      />
+
+      {/* Voice tracking feedback — compact on mobile */}
       {settings.speechTracking && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] pointer-events-none">
+        <div className="fixed top-[3.75rem] left-1/2 -translate-x-1/2 z-50 max-w-[92vw] pointer-events-none px-2">
           {voiceError ? (
-            <div className="px-4 py-2 rounded-full bg-red-600 text-white text-xs font-mono font-bold shadow-editorial text-center">
+            <div className="px-3 py-1.5 rounded-full bg-red-600 text-white text-[10px] sm:text-xs font-mono font-bold shadow-editorial text-center">
               {voiceError}
             </div>
           ) : (
-            <div className="px-4 py-2 rounded-full bg-emerald-500/95 text-black text-[10px] font-mono font-bold shadow-editorial flex items-center gap-2 justify-center">
-              <span className={`w-2 h-2 rounded-full bg-black ${isListening ? 'animate-pulse' : 'opacity-40'}`} />
-              <span>{isListening ? 'Escuchando… lee el guión en voz alta' : 'Conectando micrófono…'}</span>
-              {lastTranscript ? (
-                <span className="opacity-70 font-normal normal-case max-w-[40vw] truncate">
-                  «{lastTranscript}»
-                </span>
-              ) : null}
+            <div className="px-3 py-1.5 rounded-full bg-emerald-500/95 text-black text-[10px] font-mono font-bold shadow-editorial flex items-center gap-2 justify-center">
+              <span className={`w-1.5 h-1.5 rounded-full bg-black ${isListening ? 'animate-pulse' : 'opacity-40'}`} />
+              <span className="truncate max-w-[70vw]">
+                {isListening
+                  ? lastTranscript
+                    ? `«${lastTranscript}»`
+                    : 'Escuchando…'
+                  : 'Mic…'}
+              </span>
             </div>
           )}
         </div>
