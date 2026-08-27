@@ -258,13 +258,9 @@ export default function App() {
 
   /** Tras prepare: solo arranca MediaRecorder (el AV ya está abierto). */
   const beginPlayAndRecord = useCallback(async () => {
-    if (!settings.cameraOverlay && mode !== 'camera') {
-      setSettings((prev) => ({ ...prev, cameraOverlay: true }));
-    }
-
     const started = await startRecording(undefined, { videoOnly: false });
     setPlaybackStatus(started ? 'playing' : 'paused');
-  }, [settings.cameraOverlay, mode, startRecording]);
+  }, [startRecording]);
 
   const handleTogglePlay = useCallback(() => {
     // Detener cualquier audio TTS que pudiera estar reproduciéndose
@@ -774,7 +770,8 @@ export default function App() {
           ];
           const idx = order.indexOf((settings.cameraLayout as 'pip' | 'side-by-side' | 'background') || 'pip');
           const next = order[(idx + 1) % order.length];
-          setSettings((s) => ({ ...s, cameraLayout: next, cameraOverlay: true }));
+          // Solo cambia layout; no forzar overlay sin stream (preview negro en móvil).
+          setSettings((s) => ({ ...s, cameraLayout: next }));
         }}
       />
 

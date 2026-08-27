@@ -108,9 +108,9 @@ function requestMobileAvStream(): Promise<MediaStream> {
     return Promise.reject(new Error('NO_MEDIA_DEVICES'));
   }
 
-  // Soltar preview previo en el mismo tick, antes del único getUserMedia.
+  // Solo soltar si es video-only. No matar un stream que ya tiene mic.
   const prev = getSharedCameraStream();
-  if (prev) {
+  if (prev && isLive(prev, 'video') && !isLive(prev, 'audio')) {
     releaseSharedCameraStreamSync();
   }
 

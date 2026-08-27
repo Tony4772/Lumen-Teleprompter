@@ -319,11 +319,16 @@ export const useVideoRecorder = ({
           window.setTimeout(() => checkAndFinalize(0), 100);
         };
 
-        // timeslice en todos los móviles: fuerza chunks con audio+video
-        try {
-          recorder.start(1000);
-        } catch {
+        // iOS/WebKit: timeslice pierde la pista de audio al juntar chunks en MP4.
+        // Android: timeslice ayuda a no quedarse sin dataavailable.
+        if (isAppleTouchDevice()) {
           recorder.start();
+        } else {
+          try {
+            recorder.start(1000);
+          } catch {
+            recorder.start();
+          }
         }
 
         recordingStartTimeRef.current = Date.now();
