@@ -112,50 +112,48 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
   // Is camera effectively active?
   const isCameraEnabled = cameraActive || settings.cameraOverlay;
 
-  // Handle webcam video stream if camera is active
+  // Handle webcam video stream and PERSISTENCE across layout changes
   useEffect(() => {
     let stream: MediaStream | null = null;
 
-    if (isCameraEnabled) {
-      setCameraError(null);
-      navigator.mediaDevices
-        ?.getUserMedia({ 
-          video: { 
-            width: { ideal: 1280 }, 
-            height: { ideal: 720 },
-            facingMode: 'user'
-          }, 
-          audio: false 
-        })
-        .then((s) => {
-          stream = s;
+    const setupCamera = async () => {
+      if (isCameraEnabled) {
+        try {
+          setCameraError(null);
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+            audio: false
+          });
+
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
             videoRef.current.play().catch(console.warn);
             setIsCameraReady(true);
           }
-        })
-        .catch((err) => {
+        } catch (err) {
           console.warn('Webcam not accessible:', err);
           setIsCameraReady(false);
-          setCameraError('No se pudo acceder a la cámara web. Revisa los permisos del navegador.');
-        });
-    } else {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
-        tracks.forEach((t) => t.stop());
-        videoRef.current.srcObject = null;
+          setCameraError('No se pudo acceder a la cámara web.');
+        }
       }
-      setIsCameraReady(false);
-      setCameraError(null);
-    }
+    };
+
+    setupCamera();
+
+    // Re-sync video srcObject whenever layout changes because the video element might be new
+    const syncInterval = setInterval(() => {
+      if (isCameraEnabled && stream && videoRef.current && videoRef.current.srcObject !== stream) {
+        videoRef.current.srcObject = stream;
+      }
+    }, 100);
 
     return () => {
+      clearInterval(syncInterval);
       if (stream) {
         stream.getTracks().forEach((t) => t.stop());
       }
     };
-  }, [isCameraEnabled]);
+  }, [isCameraEnabled, settings.cameraLayout]); // Re-run or sync on layout change
 
   // Recalculate dimensions
   const updateDimensions = useCallback(() => {
