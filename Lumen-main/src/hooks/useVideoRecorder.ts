@@ -151,13 +151,7 @@ export const useVideoRecorder = ({
       console.error('adoptAvPromise failed:', err?.name, err?.message, err);
       sessionStreamRef.current = null;
 
-      // Si falló un getUserMedia nuevo pero el preview sigue vivo, úsalo
-      const shared = getSharedCameraStream();
-      if (shared && shared.getVideoTracks().some((t) => t.readyState === 'live')) {
-        sessionStreamRef.current = shared;
-        return true;
-      }
-
+      // NUNCA aceptar preview sin mic: eso graba video mudo.
       const ready = getReadyAvStream();
       if (ready) {
         sessionStreamRef.current = ready;
@@ -199,13 +193,10 @@ export const useVideoRecorder = ({
 
       const stream =
         sessionStreamRef.current &&
-        sessionStreamRef.current.getVideoTracks().some((t) => t.readyState === 'live')
+        sessionStreamRef.current.getVideoTracks().some((t) => t.readyState === 'live') &&
+        sessionStreamRef.current.getAudioTracks().some((t) => t.readyState === 'live')
           ? sessionStreamRef.current
-          : getReadyAvStream() ||
-            (() => {
-              const s = getSharedCameraStream();
-              return s && s.getVideoTracks().some((t) => t.readyState === 'live') ? s : null;
-            })();
+          : getReadyAvStream();
 
       if (!stream || !stream.getVideoTracks().some((t) => t.readyState === 'live')) {
         setRecorderError('Cámara no lista. Toca Iniciar otra vez.');

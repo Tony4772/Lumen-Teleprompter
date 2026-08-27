@@ -163,20 +163,12 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
 
       try {
         setCameraError(null);
-        // Solicitar cámara y micrófono juntos para que iOS/Android registre ambos permisos en un solo toque
-        try {
-          // Constraints simples: más compatible en Chrome/Safari/Android/iOS
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true,
-          });
-        } catch {
-          // Solo preview si el mic falla al cargar (sin gesto). El mic se pide en Iniciar.
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: false,
-          });
-        }
+        // Preview: solo video. El micrófono se pide en Iniciar (gesto) junto con
+        // un stream AV nuevo; si se pide aquí sin toque, el OS solo da cámara.
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
 
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
