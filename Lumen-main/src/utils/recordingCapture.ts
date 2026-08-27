@@ -1,13 +1,10 @@
 /**
- * iPhone/WebKit: MediaRecorder solo graba audio si video+mic vienen del MISMO
- * getUserMedia. Pedir mic aparte (addTrack / 2º gUM) = toma muda.
- * Al Iniciar: soltar preview y pedir {video,audio} una sola vez en el gesto.
- * Escritorio: reutilizar preview; si falta mic, añadir audio sin soltar video.
+ * Regla iPhone: NUNCA soltar/reabrir la cámara en Iniciar (recarga el video y
+ * corta el teleprompter). Reutilizar el preview; si falta mic, pedirlo solo.
  */
 import {
   getSharedCameraStream,
   setSharedCameraStream,
-  releaseSharedCameraStreamSync,
   isAppleTouchDevice,
 } from './cameraStreamStore';
 
@@ -23,7 +20,7 @@ export function pickRecorderMimeType(): string {
   if (typeof MediaRecorder === 'undefined') return '';
   const apple = isAppleTouchDevice();
 
-  // En Apple NUNCA elegir codecs solo de video (avc1 sin mp4a) → archivo mudo.
+  // En Apple no usar codecs solo-video (deja el archivo mudo).
   const candidates = apple
     ? [
         'video/mp4',
@@ -70,103 +67,86 @@ function setAudioSessionPlayAndRecord(): void {
   }
 }
 
-/** Un solo getUserMedia con video+audio. Sin fallback a video-only. */
-function requestStrictAvStream(): Promise<MediaStream> {
+function attachMicToVideo(videoStream: MediaStream, micStream: MediaStream): MediaStream {
+  micStream.getAudioTracks().forEach((t) => {
+    t.enabled = true;
+    const exists = videoStream.getAudioTracks().some((a) => a.id === t.id);
+    if (!exists) {
+      try {
+        videoStream.addTrack(t);
+      } catch {
+        // ignore
+      }
+    }
+  });
+  setSharedCameraStream(videoStream, { stopPrevious: false });
+  return videoStream;
+}
+
+function requestMicInGesture(): Promise<MediaStream> {
   if (!navigator.mediaDevices?.getUserMedia) {
     return Promise.reject(new Error('NO_MEDIA_DEVICES'));
   }
-
   setAudioSessionPlayAndRecord();
+  return navigator.mediaDevices
+    .getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    })
+    .catch(() => navigator.mediaDevices.getUserMedia({ audio: true }));
+}
 
+/**
+ * SÍNCRONO en el onClick de Iniciar.
+ * Si hay cámara abierta → reutilizar (el teleprompter no espera otra carga de video).
+ * Si falta mic → pedirlo en este gesto y unirlo, sin soltar video.
+ */
+export function beginAvCaptureFromUserGesture(): Promise<MediaStream> {
+  const shared = getSharedCameraStream();
+
+  if (shared && isLive(shared, 'video') && isLive(shared, 'audio')) {
+    shared.getTracks().forEach((t) => {
+      t.enabled = true;
+    });
+    setAudioSessionPlayAndRecord();
+    return Promise.resolve(shared);
+  }
+
+  if (shared && isLive(shared, 'video')) {
+    shared.getVideoTracks().forEach((t) => {
+      t.enabled = true;
+    });
+    // Pedir mic en el gesto; si falla, igual devolver video para que corra el texto
+    if (!navigator.mediaDevices?.getUserMedia) {
+      return Promise.resolve(shared);
+    }
+    return requestMicInGesture()
+      .then((mic) => attachMicToVideo(shared, mic))
+      .catch(() => shared);
+  }
+
+  // Sin preview aún
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return Promise.reject(new Error('NO_MEDIA_DEVICES'));
+  }
+  setAudioSessionPlayAndRecord();
   return navigator.mediaDevices
     .getUserMedia({ video: true, audio: true })
     .catch(() =>
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true })
+    )
+    .catch(() =>
       navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user' },
-        audio: true,
+        audio: false,
       })
     )
     .then((stream) => {
       stream.getTracks().forEach((t) => {
         t.enabled = true;
       });
-      if (!isLive(stream, 'video') || !isLive(stream, 'audio')) {
-        stream.getTracks().forEach((t) => t.stop());
-        throw new Error('NO_AUDIO');
-      }
       setSharedCameraStream(stream, { stopPrevious: true });
       return stream;
     });
-}
-
-function requestDesktopStream(): Promise<MediaStream> {
-  if (!navigator.mediaDevices?.getUserMedia) {
-    return Promise.reject(new Error('NO_MEDIA_DEVICES'));
-  }
-
-  const shared = getSharedCameraStream();
-  if (shared && isLive(shared, 'video') && isLive(shared, 'audio')) {
-    shared.getTracks().forEach((t) => {
-      t.enabled = true;
-    });
-    return Promise.resolve(shared);
-  }
-
-  if (shared && isLive(shared, 'video') && !isLive(shared, 'audio')) {
-    return navigator.mediaDevices
-      .getUserMedia({ audio: true })
-      .then((mic) => {
-        mic.getAudioTracks().forEach((t) => {
-          t.enabled = true;
-          shared.addTrack(t);
-        });
-        setSharedCameraStream(shared, { stopPrevious: false });
-        return shared;
-      })
-      .catch(() => shared);
-  }
-
-  return navigator.mediaDevices
-    .getUserMedia({ video: true, audio: true })
-    .catch(() => navigator.mediaDevices.getUserMedia({ video: true, audio: false }))
-    .then((stream) => {
-      stream.getTracks().forEach((t) => {
-        t.enabled = true;
-      });
-      setSharedCameraStream(stream, { stopPrevious: true });
-      return stream;
-    });
-}
-
-/**
- * SÍNCRONO en el onClick de Iniciar.
- * Móvil: siempre un getUserMedia {video,audio} fresco (suelta preview antes).
- */
-export function beginAvCaptureFromUserGesture(): Promise<MediaStream> {
-  if (!isMobileDevice()) {
-    return requestDesktopStream();
-  }
-
-  // Liberar cámara del preview ANTES del nuevo gUM (si no, iOS falla / queda mudo).
-  if (getSharedCameraStream()) {
-    releaseSharedCameraStreamSync();
-  }
-
-  return requestStrictAvStream().catch(async (err) => {
-    // Si el mic se niega, al menos devolver la cámara al preview
-    try {
-      if (navigator.mediaDevices?.getUserMedia) {
-        const videoOnly = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user' },
-          audio: false,
-        });
-        setSharedCameraStream(videoOnly, { stopPrevious: true });
-      }
-    } catch {
-      // ignore
-    }
-    throw err;
-  });
 }
 
 export function resumeRecordingAudioContext(): void {

@@ -23,7 +23,8 @@ import { useSpeechFollower } from './hooks/useSpeechFollower';
 import { useVideoRecorder } from './hooks/useVideoRecorder';
 import { countWords, estimateDurationSeconds } from './utils/prompterUtils';
 import { AudioRehearsalEngine } from './utils/speechSynthesis';
-import { beginAvCaptureFromUserGesture, isMobileDevice } from './utils/recordingCapture';
+import { beginAvCaptureFromUserGesture, isMobileDevice, getReadyAvStream } from './utils/recordingCapture';
+import { getSharedCameraStream } from './utils/cameraStreamStore';
 import { Play, Pause } from 'lucide-react';
 
 const STORAGE_KEY_SCRIPTS = 'lumen_teleprompter_scripts_v1';
@@ -247,14 +248,19 @@ export default function App() {
     return () => clearCountdown();
   }, [clearCountdown]);
 
-  /** Tras prepare: solo arranca MediaRecorder (el AV ya está abierto). */
+  /** Arranca el teleprompter siempre; la grabación es best-effort. */
   const beginPlayAndRecord = useCallback(async () => {
     if (!settings.cameraOverlay && mode !== 'camera') {
       setSettings((prev) => ({ ...prev, cameraOverlay: true }));
     }
 
-    const started = await startRecording(undefined, { videoOnly: false });
-    setPlaybackStatus(started ? 'playing' : 'paused');
+    // El texto debe correr aunque falle MediaRecorder / mic
+    setPlaybackStatus('playing');
+    try {
+      await startRecording(undefined, { videoOnly: false });
+    } catch (err) {
+      console.warn('startRecording failed; teleprompter keeps playing:', err);
+    }
   }, [settings.cameraOverlay, mode, startRecording]);
 
   const handleTogglePlay = useCallback((prefetchedAv?: Promise<MediaStream>) => {
@@ -275,7 +281,6 @@ export default function App() {
     // Preferir la Promise disparada en el onClick del botón Iniciar.
     const avPromise = prefetchedAv ?? beginAvCaptureFromUserGesture();
 
-    // Siempre mostrar el marco de cámara al iniciar (como al activarla en Ajustes).
     setSettings((prev) => ({
       ...prev,
       cameraOverlay: true,
@@ -286,13 +291,13 @@ export default function App() {
     setIsAudioRehearsing(false);
 
     void (async () => {
-      const ready = await adoptAvPromise(avPromise);
-      if (!ready) {
-        setPlaybackStatus('idle');
-        // No apagar cameraOverlay: el preview debe quedarse visible.
-        return;
-      }
+      await adoptAvPromise(avPromise);
 
+      const hasVideo =
+        !!getSharedCameraStream()?.getVideoTracks().some((t) => t.readyState === 'live') ||
+        !!getReadyAvStream();
+
+      // Sin cámara igual dejamos correr el teleprompter (modo texto)
       if (settings.countdownSeconds > 0 && playbackStatus === 'idle') {
         clearCountdown();
         setPlaybackStatus('countdown');
@@ -310,6 +315,10 @@ export default function App() {
         }, 1000);
       } else {
         await beginPlayAndRecord();
+      }
+
+      if (!hasVideo) {
+        console.warn('Iniciar without live camera; teleprompter still runs');
       }
     })();
   }, [
