@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { RecordedTake } from '../types';
-import { downloadRecordedVideo } from '../hooks/useVideoRecorder';
+import { saveRecordedVideo } from '../hooks/useVideoRecorder';
 import {
-  Download,
   RotateCcw,
   X,
   Film,
@@ -11,6 +10,7 @@ import {
   FileVideo,
   Trash2,
   Play,
+  Share2,
 } from 'lucide-react';
 
 interface RecordingModalProps {
@@ -34,11 +34,14 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
 }) => {
   const [selectedTake, setSelectedTake] = useState<RecordedTake | null>(null);
   const [customFilename, setCustomFilename] = useState<string>('');
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
     const initial = take || takesHistory[0] || null;
     setSelectedTake(initial);
+    setSaveStatus(null);
     if (initial) {
       const cleanTitle = (initial.scriptTitle || 'grabacion')
         .toLowerCase()
@@ -75,8 +78,17 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleDownload = () => {
-    downloadRecordedVideo(currentTake.blob, customFilename || undefined);
+  const handleSave = async (blob: Blob, name?: string) => {
+    setIsSaving(true);
+    setSaveStatus(null);
+    try {
+      const result = await saveRecordedVideo(blob, name || customFilename || undefined);
+      setSaveStatus(result.message);
+    } catch {
+      setSaveStatus('No se pudo guardar. Intenta de nuevo.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDiscardCurrent = () => {
@@ -112,7 +124,7 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
                 Tomas de esta sesión
               </h3>
               <p className="text-[11px] font-mono text-[#666] uppercase tracking-wider">
-                {takesHistory.length} toma{takesHistory.length === 1 ? '' : 's'} • no se guardan solas en el teléfono
+                {takesHistory.length} toma{takesHistory.length === 1 ? '' : 's'} • en iPhone usa Compartir
               </p>
             </div>
           </div>
@@ -143,7 +155,9 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
               <Clock className="w-4 h-4 text-[#121212]" />
               <div>
                 <div className="text-[10px] uppercase text-[#888] font-mono">Duración</div>
-                <div className="text-sm font-bold font-mono">{formatDuration(currentTake.durationSeconds)}</div>
+                <div className="text-sm font-bold font-mono">
+                  {formatDuration(currentTake.durationSeconds)}
+                </div>
               </div>
             </div>
             <div className="bg-white p-3 rounded-xs border border-[#E0DDD5] flex items-center gap-2.5 shadow-2xs">
@@ -166,7 +180,7 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
 
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-mono uppercase tracking-wider text-[#666] font-bold">
-              Nombre al descargar
+              Nombre al guardar
             </label>
             <input
               type="text"
@@ -204,12 +218,12 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          downloadRecordedVideo(t.blob, `toma-${takesHistory.length - index}`);
+                          void handleSave(t.blob, `toma-${takesHistory.length - index}`);
                         }}
                         className="p-1.5 hover:text-green-700 text-[#121212]"
-                        title="Descargar"
+                        title="Guardar / Compartir"
                       >
-                        <Download className="w-3.5 h-3.5" />
+                        <Share2 className="w-3.5 h-3.5" />
                       </button>
                       {onDeleteTake && (
                         <button
@@ -240,12 +254,24 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
         <div className="p-4 sm:p-5 border-t border-[#E0DDD5] bg-[#EFECE6] flex flex-col gap-2.5">
           <button
             type="button"
-            onClick={handleDownload}
-            className="w-full px-6 py-3 rounded-xs bg-[#121212] text-white hover:bg-black text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-editorial active:scale-95"
+            disabled={isSaving}
+            onClick={() => void handleSave(currentTake.blob)}
+            className="w-full px-6 py-3 rounded-xs bg-[#121212] text-white hover:bg-black text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-editorial active:scale-95 disabled:opacity-60"
           >
-            <Download className="w-4 h-4 text-amber-400" />
-            <span>Guardar / Descargar en el teléfono</span>
+            <Share2 className="w-4 h-4 text-amber-400" />
+            <span>{isSaving ? 'Abriendo menú…' : 'Compartir / Guardar en iPhone'}</span>
           </button>
+
+          {saveStatus && (
+            <p className="text-[11px] font-mono text-[#121212] bg-white border border-[#E0DDD5] rounded-xs px-3 py-2 text-center leading-relaxed">
+              {saveStatus}
+            </p>
+          )}
+
+          <p className="text-[10px] font-mono text-[#666] text-center leading-relaxed">
+            En iPhone: toca el botón → en el menú elige <strong>Guardar en Archivos</strong> o{' '}
+            <strong>Guardar Video</strong>. Busca luego en Archivos → En mi iPhone / Descargas.
+          </p>
 
           <div className="flex flex-col sm:flex-row gap-2">
             <button
@@ -288,10 +314,6 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
               Cerrar
             </button>
           </div>
-
-          <p className="text-[10px] font-mono text-[#888] text-center">
-            El ícono con el número solo desaparece al eliminar la toma o al recargar la página.
-          </p>
         </div>
       </div>
     </div>
