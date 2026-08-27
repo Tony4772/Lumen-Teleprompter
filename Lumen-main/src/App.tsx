@@ -263,10 +263,6 @@ export default function App() {
   }, [startRecording]);
 
   const handleTogglePlay = useCallback(() => {
-    // Detener cualquier audio TTS que pudiera estar reproduciéndose
-    AudioRehearsalEngine.stop();
-    setIsAudioRehearsing(false);
-
     if (playbackStatus === 'countdown') {
       clearCountdown();
       setPlaybackStatus('idle');
@@ -281,15 +277,16 @@ export default function App() {
       return;
     }
 
-    // CRÍTICO: disparar getUserMedia en el MISMO tick del toque (gesto).
-    // Si se hace dentro de un async después de awaits, Safari/Chrome lo bloquean.
+    // Primero del todo: getUserMedia en el gesto. Nada antes (ni TTS ni setState).
     const avPromise = beginAvCaptureFromUserGesture();
+
+    AudioRehearsalEngine.stop();
+    setIsAudioRehearsing(false);
 
     void (async () => {
       const ready = await adoptAvPromise(avPromise);
       if (!ready) {
         setPlaybackStatus('idle');
-        // Quitar preview roto para no acumular "No se pudo acceder a la cámara"
         setSettings((prev) => ({ ...prev, cameraOverlay: false }));
         return;
       }

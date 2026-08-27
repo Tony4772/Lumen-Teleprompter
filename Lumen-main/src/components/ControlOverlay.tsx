@@ -262,7 +262,9 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
             <Rewind className="w-3.5 h-3.5" />
           </button>
           <button
-            onClick={() => { triggerHaptic(30); onTogglePlay(); }}
+            onClick={() => {
+              onTogglePlay();
+            }}
             className={`w-14 h-14 rounded-full text-white flex items-center justify-center shadow-editorial transition-all hover:scale-105 relative ${
               isRecording ? 'bg-red-600 animate-pulse' : 'bg-[#121212] hover:bg-[#2a2a2a]'
             }`}
