@@ -215,7 +215,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
           <button
             onClick={onOpenRecordingModal}
             className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white border border-[#D6D2C4] text-xs font-mono font-bold"
-            title="Tomas guardadas"
+            title="Ver o eliminar tomas"
           >
             <Film className="w-3.5 h-3.5" />
             <span>{takesCount}</span>

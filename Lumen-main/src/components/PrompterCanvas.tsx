@@ -20,7 +20,8 @@ import {
   X,
   Film,
   PictureInPicture2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Trash2,
 } from 'lucide-react';
 
 interface PrompterCanvasProps {
@@ -907,10 +908,11 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
                 onOpenRecordingModal();
               }}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-[#121212]/90 backdrop-blur-md border border-[#E0DDD5]/40 text-white hover:bg-white/20 text-xs font-mono font-bold transition-all shadow-editorial"
-              title="Ver tomas de video guardadas"
+              title="Ver o eliminar tomas (toca aquí)"
             >
               <Film className="w-3.5 h-3.5 text-amber-400" />
               <span>{takesCount}</span>
+              <Trash2 className="w-3 h-3 text-white/70" />
             </button>
           )}
 

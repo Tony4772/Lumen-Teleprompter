@@ -205,12 +205,27 @@ export const useVideoRecorder = ({
       if (target) {
         try {
           URL.revokeObjectURL(target.url);
-        } catch (e) {
+        } catch {
           // Ignored
         }
       }
       return filtered;
     });
+    setLatestTake((prev) => (prev?.id === takeId ? null : prev));
+  }, []);
+
+  const clearAllTakes = useCallback(() => {
+    setTakesHistory((prev) => {
+      prev.forEach((t) => {
+        try {
+          URL.revokeObjectURL(t.url);
+        } catch {
+          // Ignored
+        }
+      });
+      return [];
+    });
+    setLatestTake(null);
   }, []);
 
   return {
@@ -223,6 +238,7 @@ export const useVideoRecorder = ({
     stopRecording,
     clearLatestTake,
     deleteTakeFromHistory,
+    clearAllTakes,
     activeStream: activeStreamRef.current,
   };
 };

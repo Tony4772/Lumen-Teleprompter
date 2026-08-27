@@ -176,6 +176,7 @@ export default function App() {
     startRecording,
     stopRecording,
     deleteTakeFromHistory,
+    clearAllTakes,
   } = useVideoRecorder({
     scriptTitle: activeScript?.title,
     scriptId: activeScript?.id,
@@ -740,6 +741,7 @@ export default function App() {
           handleToggleRecord();
         }}
         onDeleteTake={deleteTakeFromHistory}
+        onClearAllTakes={clearAllTakes}
       />
       <ScriptsLibraryModal
         isOpen={isLibraryOpen}
