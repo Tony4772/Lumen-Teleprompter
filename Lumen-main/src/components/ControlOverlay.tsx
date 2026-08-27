@@ -214,15 +214,15 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
               triggerHaptic(15);
               onToggleVoice();
             }}
-            className={`h-11 px-2 rounded-full border flex flex-col items-center justify-center active:scale-90 relative min-w-[44px] ${
+            className={`h-11 px-2 rounded-full border flex flex-col items-center justify-center active:scale-90 relative min-w-[48px] ${
               isVoiceActive
                 ? 'bg-emerald-500 text-black border-emerald-400'
                 : 'bg-white text-[#121212] border-[#E0DDD5]'
             }`}
-            title="Voz"
+            title="Seguimiento por voz: el texto avanza cuando hablas"
           >
             <Mic className="w-3.5 h-3.5" />
-            <span className="text-[8px] font-bold uppercase">Voz</span>
+            <span className="text-[8px] font-bold uppercase">{isVoiceActive ? 'ON' : 'Voz'}</span>
             {isVoiceActive && (
               <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-black animate-pulse" />
             )}

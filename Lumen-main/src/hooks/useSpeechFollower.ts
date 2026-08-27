@@ -6,6 +6,7 @@ interface SpeechFollowerOptions {
   scriptContent: string;
   onMatchProgress?: (ratio: number, matchedWord: string, wordIndex: number) => void;
   onPermissionDenied?: () => void;
+  onUnsupported?: (message: string) => void;
 }
 
 function tokensMatch(spoken: string, script: string): boolean {
@@ -18,7 +19,8 @@ function tokensMatch(spoken: string, script: string): boolean {
   return false;
 }
 
-function isSpeechRecognitionAvailable(): boolean {
+export function isSpeechRecognitionAvailable(): boolean {
+  if (typeof window === 'undefined') return false;
   return Boolean(
     (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
   );
@@ -29,6 +31,7 @@ export function useSpeechFollower({
   scriptContent,
   onMatchProgress,
   onPermissionDenied,
+  onUnsupported,
 }: SpeechFollowerOptions) {
   const [isListening, setIsListening] = useState(false);
   const [lastTranscript, setLastTranscript] = useState('');
@@ -41,14 +44,16 @@ export function useSpeechFollower({
   const enabledRef = useRef(enabled);
   const onMatchProgressRef = useRef(onMatchProgress);
   const onPermissionDeniedRef = useRef(onPermissionDenied);
+  const onUnsupportedRef = useRef(onUnsupported);
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startListeningRef = useRef<() => void>(() => {});
   const intentionalStopRef = useRef(false);
-  const restartAttemptsRef = useRef(0);
+  const notAllowedRetriesRef = useRef(0);
 
   enabledRef.current = enabled;
   onMatchProgressRef.current = onMatchProgress;
   onPermissionDeniedRef.current = onPermissionDenied;
+  onUnsupportedRef.current = onUnsupported;
 
   useEffect(() => {
     scriptWordsRef.current = extractScriptWords(scriptContent);
@@ -127,23 +132,14 @@ export function useSpeechFollower({
     setIsListening(false);
   }, []);
 
-  const failClosed = useCallback((softMessage?: string) => {
-    intentionalStopRef.current = true;
-    enabledRef.current = false;
-    setIsListening(false);
-    // Mensaje breve opcional; el UI apaga Voz y no deja banner rojo permanente
-    if (softMessage) setError(softMessage);
-    else setError(null);
-    onPermissionDeniedRef.current?.();
-    window.setTimeout(() => setError(null), 2500);
-  }, []);
-
   const startListening = useCallback(() => {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      failClosed('Voz no disponible en este navegador.');
+      const msg = 'Voz no disponible aquí. En el teléfono usa Chrome.';
+      setError(msg);
+      onUnsupportedRef.current?.(msg);
       return;
     }
 
@@ -164,15 +160,15 @@ export function useSpeechFollower({
     }
 
     const recognition = new SpeechRecognition();
-    // continuous=false es más estable en móvil; reiniciamos en onend
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    // En móvil continuous=true suele cortarse; reiniciamos en onend
     recognition.continuous = !isMobile;
     recognition.interimResults = true;
     recognition.lang = 'es-ES';
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
-      restartAttemptsRef.current = 0;
+      notAllowedRetriesRef.current = 0;
       setIsListening(true);
       setError(null);
     };
@@ -181,27 +177,38 @@ export function useSpeechFollower({
       const code = event?.error as string;
       console.warn('Speech recognition error:', code);
 
-      // Errores normales / recuperables: no mostrar nada rojo
       if (code === 'no-speech' || code === 'aborted' || code === 'network') {
         return;
       }
 
       if (code === 'not-allowed' || code === 'service-not-allowed') {
-        // Sin banner rojo agresivo: apagar Voz en silencio
-        failClosed();
+        // En móvil a veces llega un false not-allowed al primer intento
+        if (notAllowedRetriesRef.current < 1 && enabledRef.current) {
+          notAllowedRetriesRef.current += 1;
+          if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+          restartTimerRef.current = setTimeout(() => {
+            if (enabledRef.current) startListeningRef.current();
+          }, 500);
+          return;
+        }
+        intentionalStopRef.current = true;
+        enabledRef.current = false;
+        setIsListening(false);
+        setError('Permite el micrófono en Chrome y vuelve a tocar Voz.');
+        onPermissionDeniedRef.current?.();
         return;
       }
 
       if (code === 'audio-capture') {
-        // Suele ser conflicto con la grabación; reintentar o apagar suave
-        restartAttemptsRef.current += 1;
-        if (restartAttemptsRef.current > 2) {
-          failClosed();
+        // Conflicto con grabación: reintentar un par de veces
+        if (notAllowedRetriesRef.current < 2 && enabledRef.current) {
+          notAllowedRetriesRef.current += 1;
+          return;
         }
+        setError('El micrófono está ocupado (¿estás grabando?). Pausa la grabación o desactiva Voz.');
         return;
       }
 
-      // Otros: no molestar en UI
       console.warn('Speech error ignored in UI:', code);
     };
 
@@ -212,7 +219,7 @@ export function useSpeechFollower({
       restartTimerRef.current = setTimeout(() => {
         if (!enabledRef.current || intentionalStopRef.current) return;
         startListeningRef.current();
-      }, isMobile ? 450 : 320);
+      }, isMobile ? 400 : 300);
     };
 
     recognition.onresult = (event: any) => {
@@ -243,14 +250,23 @@ export function useSpeechFollower({
 
     recognitionRef.current = recognition;
 
-    // NO usar getUserMedia aquí: en móvil provoca not-allowed / doble prompt
     try {
       recognition.start();
     } catch (err) {
       console.error('Error starting speech recognition:', err);
-      failClosed();
+      // Reintento único (InvalidStateError frecuente en móvil)
+      if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = setTimeout(() => {
+        if (!enabledRef.current) return;
+        try {
+          recognition.start();
+        } catch (e2) {
+          console.error('Speech start retry failed:', e2);
+          setError('No se pudo iniciar Voz. Toca de nuevo el botón Voz.');
+        }
+      }, 350);
     }
-  }, [matchSpokenTokens, failClosed]);
+  }, [matchSpokenTokens]);
 
   startListeningRef.current = startListening;
 
@@ -258,20 +274,30 @@ export function useSpeechFollower({
     currentWordPointerRef.current = 0;
     setRecognizedWordsCount(0);
     setLastTranscript('');
-    onMatchProgressRef.current?.(0, '', 0);
+    // No empujar wordIndex 0 al canvas aquí: evita salto al top al (des)activar
   }, []);
 
   useEffect(() => {
     if (enabled) {
       if (!isSpeechRecognitionAvailable()) {
-        failClosed('Voz no disponible en este navegador.');
+        const msg = 'Voz no disponible aquí. En el teléfono usa Chrome (no Instagram/Safari).';
+        setError(msg);
+        onUnsupportedRef.current?.(msg);
         return;
       }
-      startListening();
-    } else {
-      stopListening();
-      setError(null);
+      notAllowedRetriesRef.current = 0;
+      // Pequeño delay para que el gesto del tap “cuente” en móvil
+      const t = window.setTimeout(() => {
+        if (enabledRef.current) startListening();
+      }, 120);
+      return () => {
+        window.clearTimeout(t);
+        stopListening();
+      };
     }
+
+    stopListening();
+    setError(null);
     return () => {
       stopListening();
     };

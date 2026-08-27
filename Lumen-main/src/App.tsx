@@ -138,6 +138,8 @@ export default function App() {
   const [voiceWordIndex, setVoiceWordIndex] = useState<number>(0);
   const [lastVoiceWord, setLastVoiceWord] = useState<string>('');
 
+  const [voiceBanner, setVoiceBanner] = useState<string | null>(null);
+
   const handleVoiceProgress = useCallback((ratio: number, matchedWord: string, wordIndex: number) => {
     setVoiceProgressRatio(ratio);
     setLastVoiceWord(matchedWord);
@@ -150,8 +152,28 @@ export default function App() {
     onMatchProgress: handleVoiceProgress,
     onPermissionDenied: () => {
       setSettings((prev) => ({ ...prev, speechTracking: false }));
+      setVoiceBanner('No se pudo usar el mic. Abre la app en Chrome y permite el micrófono.');
+      window.setTimeout(() => setVoiceBanner(null), 5000);
+    },
+    onUnsupported: (message) => {
+      setSettings((prev) => ({ ...prev, speechTracking: false }));
+      setVoiceBanner(message);
+      window.setTimeout(() => setVoiceBanner(null), 6000);
     },
   });
+
+  const handleToggleVoice = useCallback(() => {
+    setSettings((s) => {
+      const next = !s.speechTracking;
+      if (next) {
+        setVoiceBanner('Voz ON — habla el texto y el teleprompter avanzará');
+        window.setTimeout(() => setVoiceBanner(null), 3500);
+      } else {
+        setVoiceBanner(null);
+      }
+      return { ...s, speechTracking: next };
+    });
+  }, []);
 
   // When enabling voice tracking, pause WPM auto-scroll so the mic drives movement
   useEffect(() => {
@@ -160,9 +182,8 @@ export default function App() {
     }
     if (!settings.speechTracking) {
       resetVoiceTracking();
-      setVoiceProgressRatio(0);
-      setVoiceWordIndex(0);
       setLastVoiceWord('');
+      // No forzar voiceWordIndex/progress a 0 aquí: evita salto visual al top
     }
   }, [settings.speechTracking]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -428,7 +449,7 @@ export default function App() {
       } else if (e.key === 'c' || e.key === 'C') {
         setSettings((prev) => ({ ...prev, cameraOverlay: !prev.cameraOverlay }));
       } else if (e.key === 'v' || e.key === 'V') {
-        setSettings((prev) => ({ ...prev, speechTracking: !prev.speechTracking }));
+        handleToggleVoice();
       } else if (e.key === '+' || e.key === '=') {
         setSettings((prev) => ({ ...prev, fontSize: Math.min(120, prev.fontSize + 2) }));
       } else if (e.key === '-' || e.key === '_') {
@@ -443,7 +464,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleTogglePlay, handleRestart, handleNudgeForward, handleNudgeBackward, handleToggleFullscreen]);
+  }, [handleTogglePlay, handleRestart, handleNudgeForward, handleNudgeBackward, handleToggleFullscreen, handleToggleVoice, handleToggleRecord]);
 
   return (
     <div className="w-screen h-[100dvh] flex flex-col bg-[#F9F7F2] text-[#121212] overflow-hidden select-none font-sans">
@@ -472,7 +493,7 @@ export default function App() {
         isCameraActive={settings.cameraOverlay || mode === 'camera'}
         onToggleCamera={() => setSettings((s) => ({ ...s, cameraOverlay: !s.cameraOverlay }))}
         isVoiceActive={settings.speechTracking}
-        onToggleVoice={() => setSettings((s) => ({ ...s, speechTracking: !s.speechTracking }))}
+        onToggleVoice={handleToggleVoice}
         onOpenAIModal={() => setIsAIOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenShortcuts={() => setIsShortcutsOpen(true)}
@@ -582,7 +603,7 @@ export default function App() {
             totalEstimatedSeconds={totalEstimatedSeconds}
             wordCount={wordCount}
             isVoiceActive={settings.speechTracking}
-            onToggleVoice={() => setSettings((s) => ({ ...s, speechTracking: !s.speechTracking }))}
+            onToggleVoice={handleToggleVoice}
             isCameraActive={settings.cameraOverlay || mode === 'camera'}
             onToggleCamera={() => setSettings((s) => ({
               ...s,
@@ -625,7 +646,7 @@ export default function App() {
             totalEstimatedSeconds={totalEstimatedSeconds}
             wordCount={wordCount}
             isVoiceActive={settings.speechTracking}
-            onToggleVoice={() => setSettings((s) => ({ ...s, speechTracking: !s.speechTracking }))}
+            onToggleVoice={handleToggleVoice}
             isCameraActive={settings.cameraOverlay || mode === 'camera'}
             onToggleCamera={() => setSettings((s) => ({
               ...s,
@@ -693,7 +714,7 @@ export default function App() {
           }
         }}
         isVoiceActive={settings.speechTracking}
-        onToggleVoice={() => setSettings((s) => ({ ...s, speechTracking: !s.speechTracking }))}
+        onToggleVoice={handleToggleVoice}
         isRecording={isRecording}
         playbackStatus={playbackStatus}
         onTogglePlay={handleTogglePlay}
@@ -750,19 +771,37 @@ export default function App() {
         </div>
       )}
 
-      {/* Voice tracking feedback — solo estado OK; errores se apagan solos sin banner rojo permanente */}
-      {settings.speechTracking && !voiceError && !isRecording && (
-        <div className="fixed top-[3.75rem] left-1/2 -translate-x-1/2 z-50 max-w-[92vw] pointer-events-none px-2">
-          <div className="px-3 py-1.5 rounded-full bg-emerald-500/95 text-black text-[10px] font-mono font-bold shadow-editorial flex items-center gap-2 justify-center">
-            <span className={`w-1.5 h-1.5 rounded-full bg-black ${isListening ? 'animate-pulse' : 'opacity-40'}`} />
-            <span className="truncate max-w-[70vw]">
-              {isListening
-                ? lastTranscript
-                  ? `«${lastTranscript}»`
-                  : 'Escuchando…'
-                : 'Mic…'}
-            </span>
-          </div>
+      {/* Voice status / help banners */}
+      {(voiceBanner || (settings.speechTracking && !isRecording)) && (
+        <div
+          className={`fixed left-1/2 -translate-x-1/2 z-[60] max-w-[92vw] px-2 ${
+            isRecording ? 'top-[6.5rem]' : 'top-[3.75rem]'
+          }`}
+        >
+          {voiceBanner ? (
+            <button
+              type="button"
+              onClick={() => setVoiceBanner(null)}
+              className="px-3 py-2 rounded-full bg-amber-400 text-black text-[11px] font-mono font-bold shadow-editorial text-center"
+            >
+              {voiceBanner}
+            </button>
+          ) : (
+            <div className="px-3 py-1.5 rounded-full bg-emerald-500 text-black text-[10px] font-mono font-bold shadow-editorial flex items-center gap-2 justify-center pointer-events-none">
+              <span
+                className={`w-2 h-2 rounded-full bg-black ${isListening ? 'animate-pulse' : 'opacity-40'}`}
+              />
+              <span className="truncate max-w-[75vw]">
+                {voiceError
+                  ? voiceError
+                  : isListening
+                    ? lastTranscript
+                      ? `«${lastTranscript}»`
+                      : 'Voz ON — habla ahora…'
+                    : 'Voz ON — iniciando mic…'}
+              </span>
+            </div>
+          )}
         </div>
       )}
 

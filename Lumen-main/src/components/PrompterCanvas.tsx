@@ -249,7 +249,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
     };
   }, [playbackStatus, speechTracking, settings.wpm, settings.fontSize, settings.lineHeight, onReachedEnd]);
 
-  // Voice-driven scroll: map recognized word index → line → reader-line position
+  // Voice-driven scroll: only move after a real spoken match (never jump to top on activate)
   const lastVoiceScrollIdxRef = useRef(-1);
   useEffect(() => {
     if (!speechTracking) {
@@ -257,6 +257,13 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
       return;
     }
     if (!containerRef.current) return;
+
+    // Al activar Voz, voiceWordIndex suele ser 0 → no desplazar hasta que haya match real
+    if (!voiceMatchedWord) {
+      lastVoiceScrollIdxRef.current = voiceWordIndex;
+      return;
+    }
+
     if (voiceWordIndex === lastVoiceScrollIdxRef.current) return;
     lastVoiceScrollIdxRef.current = voiceWordIndex;
 
@@ -296,7 +303,14 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
 
     container.scrollTop = nextScroll;
     setScrollY(nextScroll);
-  }, [speechTracking, voiceWordIndex, voiceProgress, parsedLines, settings.readerLinePosition]);
+  }, [
+    speechTracking,
+    voiceWordIndex,
+    voiceProgress,
+    voiceMatchedWord,
+    parsedLines,
+    settings.readerLinePosition,
+  ]);
 
   // Handle scroll and active line tracking
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
