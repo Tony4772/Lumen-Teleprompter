@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { RecordedTake } from '../types';
-import { setSharedCameraStream, isAppleTouchDevice } from '../utils/cameraStreamStore';
+import { setSharedCameraStream, getSharedCameraStream, isAppleTouchDevice } from '../utils/cameraStreamStore';
 import {
   beginAvCaptureFromUserGesture,
   getReadyAvStream,
@@ -195,13 +195,12 @@ export const useVideoRecorder = ({
 
       const stream =
         sessionStreamRef.current &&
-        sessionStreamRef.current.getVideoTracks().some((t) => t.readyState === 'live') &&
-        sessionStreamRef.current.getAudioTracks().some((t) => t.readyState === 'live')
+        sessionStreamRef.current.getVideoTracks().some((t) => t.readyState === 'live')
           ? sessionStreamRef.current
-          : getReadyAvStream();
+          : (getReadyAvStream() || getSharedCameraStream());
 
-      if (!stream) {
-        setRecorderError('Cámara y micrófono no listos. Toca Iniciar otra vez.');
+      if (!stream || !stream.getVideoTracks().some((t) => t.readyState === 'live')) {
+        setRecorderError('Cámara no lista. Toca Iniciar otra vez.');
         setIsRecording(false);
         return false;
       }

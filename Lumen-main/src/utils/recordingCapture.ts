@@ -91,6 +91,8 @@ function requestFullAvStream(): Promise<MediaStream> {
     .getUserMedia(OPTIMAL_AV_CONSTRAINTS)
     .catch(() => navigator.mediaDevices.getUserMedia(STANDARD_AV_CONSTRAINTS))
     .catch(() => navigator.mediaDevices.getUserMedia(GENERIC_AV_CONSTRAINTS))
+    .catch(() => navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false }))
+    .catch(() => navigator.mediaDevices.getUserMedia({ video: true }))
     .then((stream) => {
       stream.getTracks().forEach((t) => {
         t.enabled = true;
@@ -117,10 +119,17 @@ export function beginAvCaptureFromUserGesture(): Promise<MediaStream> {
     return Promise.reject(new Error('NO_MEDIA_DEVICES'));
   }
 
-  // Si ya tenemos preview de cámara activo (video live), solo pedimos micrófono
+  // Si ya tenemos preview de cámara activo (video live), solicitamos el micrófono
   // y lo agregamos al stream existente sin reiniciar el sensor de la cámara en hardware.
   const currentPreview = getSharedCameraStream();
-  if (currentPreview && isLive(currentPreview, 'video') && !isLive(currentPreview, 'audio')) {
+  if (currentPreview && isLive(currentPreview, 'video')) {
+    if (isLive(currentPreview, 'audio')) {
+      currentPreview.getTracks().forEach((t) => {
+        t.enabled = true;
+      });
+      return Promise.resolve(currentPreview);
+    }
+
     const audioPromise = navigator.mediaDevices
       .getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
@@ -136,8 +145,8 @@ export function beginAvCaptureFromUserGesture(): Promise<MediaStream> {
         return currentPreview;
       })
       .catch(() => {
-        // Fallback: si pedir solo audio falla, intentar pedir ambos
-        return requestFullAvStream();
+        // Si el usuario rechazó el micrófono o falló, permitir continuar con el video
+        return currentPreview;
       });
 
     return audioPromise;

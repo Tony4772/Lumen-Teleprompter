@@ -163,29 +163,25 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
 
       try {
         setCameraError(null);
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-          audio: false,
-        });
+        // Solicitar cámara y micrófono juntos para que iOS/Android registre ambos permisos en un solo toque
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          });
+        } catch {
+          // Fallback: si el micrófono no está disponible o fue denegado, abrir solo cámara
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+            audio: false,
+          });
+        }
+
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
-        // Si ya hay stream con audio (grabación activa), no pisarlo con video-only
-        const fromRecorder = getSharedCameraStream();
-        if (
-          fromRecorder &&
-          fromRecorder !== stream &&
-          fromRecorder.getAudioTracks().some((t) => t.readyState === 'live') &&
-          fromRecorder.getVideoTracks().some((t) => t.readyState === 'live')
-        ) {
-          stream.getTracks().forEach((t) => t.stop());
-          stream = fromRecorder;
-          ownsStream = false;
-          attachToVideo(fromRecorder);
-          setCameraError(null);
-          return;
-        }
+
         ownsStream = true;
         setSharedCameraStream(stream);
         attachToVideo(stream);
@@ -203,7 +199,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
           setCameraError(null);
           return;
         }
-        setCameraError('No se pudo acceder a la cámara web.');
+        setCameraError('No se pudo acceder a la cámara.');
       }
     };
 
