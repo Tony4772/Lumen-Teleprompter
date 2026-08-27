@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { RecordedTake } from '../types';
 import { saveRecordedVideo } from '../hooks/useVideoRecorder';
+import { isAppleTouchDevice } from '../utils/cameraStreamStore';
 import {
   RotateCcw,
   X,
@@ -11,6 +12,7 @@ import {
   Trash2,
   Play,
   Share2,
+  Download,
 } from 'lucide-react';
 
 interface RecordingModalProps {
@@ -36,25 +38,55 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
   const [customFilename, setCustomFilename] = useState<string>('');
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [playError, setPlayError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const isApple = useMemo(() => isAppleTouchDevice(), []);
 
   useEffect(() => {
     if (!isOpen) return;
     const initial = take || takesHistory[0] || null;
     setSelectedTake(initial);
     setSaveStatus(null);
+    setPlayError(null);
     if (initial) {
       const cleanTitle = (initial.scriptTitle || 'grabacion')
         .toLowerCase()
-        .replace(/[^a-z0-9]/g, '-')
+        .replace(/[^a-z0-9]+/g, '-')
         .replace(/-+/g, '-')
         .slice(0, 30);
       setCustomFilename(`toma-${cleanTitle}-${new Date().toISOString().slice(0, 10)}`);
     }
   }, [isOpen, take, takesHistory]);
 
+  const currentTake = selectedTake || take || takesHistory[0] || null;
+
+  // URL fresca desde el blob: más fiable que reutilizar una URL antigua
+  const previewUrl = useMemo(() => {
+    if (!currentTake?.blob) return currentTake?.url || '';
+    return URL.createObjectURL(currentTake.blob);
+  }, [currentTake?.id, currentTake?.blob, currentTake?.url]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl && previewUrl.startsWith('blob:')) {
+        try {
+          URL.revokeObjectURL(previewUrl);
+        } catch {
+          // ignore
+        }
+      }
+    };
+  }, [previewUrl]);
+
+  useEffect(() => {
+    setPlayError(null);
+    const el = videoRef.current;
+    if (!el || !previewUrl) return;
+    el.load();
+  }, [previewUrl]);
+
   if (!isOpen) return null;
 
-  const currentTake = selectedTake || take || takesHistory[0] || null;
   if (!currentTake) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
@@ -121,10 +153,10 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
             </div>
             <div>
               <h3 className="font-serif italic font-bold text-lg text-[#121212] leading-tight">
-                Tomas de esta sesión
+                Revisar toma
               </h3>
               <p className="text-[11px] font-mono text-[#666] uppercase tracking-wider">
-                {takesHistory.length} toma{takesHistory.length === 1 ? '' : 's'} • en iPhone usa Compartir
+                {takesHistory.length} toma{takesHistory.length === 1 ? '' : 's'} • reproduce, renombra y guarda
               </p>
             </div>
           </div>
@@ -142,12 +174,26 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
         <div className="p-4 sm:p-6 overflow-y-auto flex flex-col gap-5">
           <div className="relative w-full aspect-video bg-black rounded-xs overflow-hidden border border-[#121212] shadow-sm flex items-center justify-center">
             <video
+              ref={videoRef}
               key={currentTake.id}
-              src={currentTake.url}
+              src={previewUrl}
               controls
               playsInline
-              className="w-full h-full object-contain"
+              preload="metadata"
+              controlsList="nodownload"
+              className="w-full h-full object-contain bg-black"
+              onError={() =>
+                setPlayError(
+                  'No se pudo reproducir aquí. Prueba Descargar y ábrelo en el reproductor del PC.'
+                )
+              }
+              onLoadedData={() => setPlayError(null)}
             />
+            {playError && (
+              <div className="absolute inset-x-0 bottom-0 bg-black/80 text-white text-[11px] font-mono px-3 py-2 text-center">
+                {playError}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-2">
@@ -221,9 +267,13 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
                           void handleSave(t.blob, `toma-${takesHistory.length - index}`);
                         }}
                         className="p-1.5 hover:text-green-700 text-[#121212]"
-                        title="Guardar / Compartir"
+                        title={isApple ? 'Compartir' : 'Descargar'}
                       >
-                        <Share2 className="w-3.5 h-3.5" />
+                        {isApple ? (
+                          <Share2 className="w-3.5 h-3.5" />
+                        ) : (
+                          <Download className="w-3.5 h-3.5" />
+                        )}
                       </button>
                       {onDeleteTake && (
                         <button
@@ -258,8 +308,20 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
             onClick={() => void handleSave(currentTake.blob)}
             className="w-full px-6 py-3 rounded-xs bg-[#121212] text-white hover:bg-black text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-editorial active:scale-95 disabled:opacity-60"
           >
-            <Share2 className="w-4 h-4 text-amber-400" />
-            <span>{isSaving ? 'Abriendo menú…' : 'Compartir / Guardar en iPhone'}</span>
+            {isApple ? (
+              <Share2 className="w-4 h-4 text-amber-400" />
+            ) : (
+              <Download className="w-4 h-4 text-amber-400" />
+            )}
+            <span>
+              {isSaving
+                ? isApple
+                  ? 'Abriendo menú…'
+                  : 'Descargando…'
+                : isApple
+                  ? 'Compartir / Guardar en iPhone'
+                  : 'Descargar video'}
+            </span>
           </button>
 
           {saveStatus && (
@@ -268,10 +330,16 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
             </p>
           )}
 
-          <p className="text-[10px] font-mono text-[#666] text-center leading-relaxed">
-            En iPhone: toca el botón → en el menú elige <strong>Guardar en Archivos</strong> o{' '}
-            <strong>Guardar Video</strong>. Busca luego en Archivos → En mi iPhone / Descargas.
-          </p>
+          {isApple ? (
+            <p className="text-[10px] font-mono text-[#666] text-center leading-relaxed">
+              En iPhone: toca el botón → elige <strong>Guardar en Archivos</strong> o{' '}
+              <strong>Guardar Video</strong>.
+            </p>
+          ) : (
+            <p className="text-[10px] font-mono text-[#666] text-center leading-relaxed">
+              Usa los controles del video para reproducir. Renombra arriba y toca Descargar.
+            </p>
+          )}
 
           <div className="flex flex-col sm:flex-row gap-2">
             <button

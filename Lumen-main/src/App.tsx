@@ -23,7 +23,6 @@ import { useSpeechFollower } from './hooks/useSpeechFollower';
 import { useVideoRecorder } from './hooks/useVideoRecorder';
 import { countWords, estimateDurationSeconds } from './utils/prompterUtils';
 import { AudioRehearsalEngine } from './utils/speechSynthesis';
-import { releaseSharedCameraStream } from './utils/cameraStreamStore';
 import { Play, Pause } from 'lucide-react';
 
 const STORAGE_KEY_SCRIPTS = 'lumen_teleprompter_scripts_v1';
@@ -205,6 +204,7 @@ export default function App() {
     takesHistory,
     recorderError,
     clearRecorderError,
+    prepareRecordingStream,
     startRecording,
     stopRecording,
     deleteTakeFromHistory,
@@ -244,23 +244,20 @@ export default function App() {
     return () => clearCountdown();
   }, [clearCountdown]);
 
-  /** After countdown: grabar primero (1 stream AV), luego mostrar preview. */
+  /** Tras countdown: solo MediaRecorder (el stream AV ya se abrió al tocar Iniciar). */
   const beginPlayAndRecord = useCallback(async () => {
     if (settings.speechTracking) {
       setSettings((prev) => ({ ...prev, speechTracking: false }));
     }
 
-    // NO abrir preview antes: en iPhone eso bloquea la grabación con audio.
     const started = await startRecording(undefined, { videoOnly: false });
 
     if (started) {
-      // Ahora sí mostrar cámara (usa el stream que ya abrió el grabador)
       if (!settings.cameraOverlay && mode !== 'camera') {
         setSettings((prev) => ({ ...prev, cameraOverlay: true }));
       }
       setPlaybackStatus('playing');
     } else {
-      // No fingir que está grabando
       setPlaybackStatus('paused');
     }
   }, [settings.cameraOverlay, settings.speechTracking, mode, startRecording]);
@@ -283,31 +280,50 @@ export default function App() {
       return;
     }
 
-    // Start from idle / paused / completed
-    if (settings.countdownSeconds > 0 && playbackStatus === 'idle') {
-      clearCountdown();
-      // Liberar cámara ahora: en iPhone da tiempo a que suelte antes de grabar AV
-      void releaseSharedCameraStream(0);
-      setPlaybackStatus('countdown');
-      let currentCount = settings.countdownSeconds;
-      setCountdownNumber(currentCount);
+    // Crítico en iPhone: pedir cámara+mic AHORA (gesto del usuario), no tras el countdown.
+    void (async () => {
+      if (settings.speechTracking) {
+        setSettings((prev) => ({ ...prev, speechTracking: false }));
+      }
 
-      countdownIntervalRef.current = setInterval(() => {
-        currentCount -= 1;
-        if (currentCount > 0) {
-          setCountdownNumber(currentCount);
-        } else {
-          clearCountdown();
-          void beginPlayAndRecord();
-        }
-      }, 1000);
-    } else {
-      void beginPlayAndRecord();
-    }
+      const ready = await prepareRecordingStream();
+      if (!ready) {
+        setPlaybackStatus('idle');
+        return;
+      }
+
+      // Mostrar preview con el mismo stream AV durante la cuenta regresiva
+      if (!settings.cameraOverlay && mode !== 'camera') {
+        setSettings((prev) => ({ ...prev, cameraOverlay: true }));
+      }
+
+      if (settings.countdownSeconds > 0 && playbackStatus === 'idle') {
+        clearCountdown();
+        setPlaybackStatus('countdown');
+        let currentCount = settings.countdownSeconds;
+        setCountdownNumber(currentCount);
+
+        countdownIntervalRef.current = setInterval(() => {
+          currentCount -= 1;
+          if (currentCount > 0) {
+            setCountdownNumber(currentCount);
+          } else {
+            clearCountdown();
+            void beginPlayAndRecord();
+          }
+        }, 1000);
+      } else {
+        await beginPlayAndRecord();
+      }
+    })();
   }, [
     playbackStatus,
     settings.countdownSeconds,
+    settings.cameraOverlay,
+    settings.speechTracking,
+    mode,
     clearCountdown,
+    prepareRecordingStream,
     beginPlayAndRecord,
     stopRecording,
   ]);
@@ -794,7 +810,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setVoiceBanner(null)}
-              className="px-3 py-2 rounded-full bg-amber-400 text-black text-[11px] font-mono font-bold shadow-editorial text-center"
+              className="px-3 py-2 rounded-xs bg-neutral-900/90 text-white text-[11px] font-mono shadow-editorial text-center border border-white/20"
             >
               {voiceBanner}
             </button>

@@ -1,7 +1,12 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { PrompterSettings, PlaybackStatus, CameraLayout } from '../types';
 import { parseScriptContent, ParsedLine, countLineScriptWords } from '../utils/prompterUtils';
-import { setSharedCameraStream, getSharedCameraStream, CAMERA_STREAM_EVENT } from '../utils/cameraStreamStore';
+import {
+  setSharedCameraStream,
+  getSharedCameraStream,
+  isPreviewCaptureAllowed,
+  CAMERA_STREAM_EVENT,
+} from '../utils/cameraStreamStore';
 import { 
   Eye, 
   ArrowRight, 
@@ -148,17 +153,22 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
         return;
       }
 
+      // Durante preparación/grabación no abrir preview-only (rompe iPhone)
+      if (!isPreviewCaptureAllowed()) {
+        return;
+      }
+
       try {
         setCameraError(null);
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+          video: { facingMode: 'user' },
           audio: false,
         });
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
-        // Si el grabador ya publicó un stream AV mientras esperábamos, descartar preview-only
+        // Si el grabador ya publicó un stream AV, descartar este preview-only
         const fromRecorder = getSharedCameraStream();
         if (
           fromRecorder &&
@@ -169,6 +179,10 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
           stream = fromRecorder;
           ownsStream = false;
           attachToVideo(fromRecorder);
+          return;
+        }
+        if (!isPreviewCaptureAllowed()) {
+          stream.getTracks().forEach((t) => t.stop());
           return;
         }
         ownsStream = true;
@@ -185,6 +199,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
           setCameraError(null);
           return;
         }
+        if (!isPreviewCaptureAllowed()) return;
         setCameraError('No se pudo acceder a la cámara.');
       }
     };
