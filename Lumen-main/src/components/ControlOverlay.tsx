@@ -159,11 +159,13 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
             ) : (
               <Play className="w-6 h-6 fill-current ml-0.5" />
             )}
-            {isRecording && (
-              <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[8px] font-mono font-bold bg-black/70 px-1 rounded-xs tabular-nums">
-                {formatRecTime(recordingSeconds)}
-              </span>
-            )}
+            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[8px] font-mono font-bold px-1 rounded-xs tabular-nums whitespace-nowrap bg-black/75 text-white">
+              {isRecording
+                ? `REC ${formatRecTime(recordingSeconds)}`
+                : isPlaying
+                  ? 'EN VIVO'
+                  : 'INICIAR'}
+            </span>
           </button>
 
           <div className="h-11 px-1 rounded-full bg-white border border-[#E0DDD5] flex flex-col items-center justify-center min-w-[52px]">

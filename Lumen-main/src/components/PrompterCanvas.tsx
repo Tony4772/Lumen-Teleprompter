@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { PrompterSettings, PlaybackStatus, CameraLayout } from '../types';
 import { parseScriptContent, ParsedLine, countLineScriptWords } from '../utils/prompterUtils';
+import { setSharedCameraStream } from '../utils/cameraStreamStore';
 import { 
   Eye, 
   ArrowRight, 
@@ -123,6 +124,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
   // Handle webcam video stream and PERSISTENCE across layout changes
   useEffect(() => {
     let stream: MediaStream | null = null;
+    let cancelled = false;
 
     const setupCamera = async () => {
       if (isCameraEnabled) {
@@ -130,8 +132,13 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
           setCameraError(null);
           stream = await navigator.mediaDevices.getUserMedia({
             video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-            audio: false
+            audio: false,
           });
+          if (cancelled) {
+            stream.getTracks().forEach((t) => t.stop());
+            return;
+          }
+          setSharedCameraStream(stream);
 
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
@@ -142,13 +149,13 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
           console.warn('Webcam not accessible:', err);
           setIsCameraReady(false);
           setCameraError('No se pudo acceder a la cámara web.');
+          setSharedCameraStream(null);
         }
       }
     };
 
     setupCamera();
 
-    // Re-sync video srcObject whenever layout changes because the video element might be new
     const syncInterval = setInterval(() => {
       if (isCameraEnabled && stream && videoRef.current && videoRef.current.srcObject !== stream) {
         videoRef.current.srcObject = stream;
@@ -156,12 +163,14 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
     }, 100);
 
     return () => {
+      cancelled = true;
       clearInterval(syncInterval);
       if (stream) {
         stream.getTracks().forEach((t) => t.stop());
       }
+      setSharedCameraStream(null);
     };
-  }, [isCameraEnabled, settings.cameraLayout]); // Re-run or sync on layout change
+  }, [isCameraEnabled, settings.cameraLayout]);
 
   // Recalculate dimensions
   const updateDimensions = useCallback(() => {

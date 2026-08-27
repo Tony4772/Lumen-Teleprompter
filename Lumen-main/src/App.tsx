@@ -173,6 +173,7 @@ export default function App() {
     latestTake,
     takesHistory,
     recorderError,
+    clearRecorderError,
     startRecording,
     stopRecording,
     deleteTakeFromHistory,
@@ -214,16 +215,23 @@ export default function App() {
 
   /** After countdown: start camera recording + scroll together. */
   const beginPlayAndRecord = useCallback(async () => {
-    if (!settings.cameraOverlay && mode !== 'camera') {
+    const needsCamera = !settings.cameraOverlay && mode !== 'camera';
+    if (needsCamera) {
       setSettings((prev) => ({ ...prev, cameraOverlay: true }));
+      // Esperar a que el preview abra la cámara (stream compartido) antes de grabar
+      await new Promise((r) => setTimeout(r, 800));
     }
-    try {
-      // Con voz activa: grabar solo video para no bloquear el micrófono del ASR
-      await startRecording(undefined, { videoOnly: settings.speechTracking });
-    } catch (err) {
-      console.warn('No se pudo iniciar la grabación:', err);
-    }
+
+    const started = await startRecording(undefined, {
+      videoOnly: settings.speechTracking,
+    });
+
     setPlaybackStatus('playing');
+
+    if (!started) {
+      // El scroll sigue, pero avisamos que NO hay video
+      console.warn('Grabación no iniciada');
+    }
   }, [settings.cameraOverlay, settings.speechTracking, mode, startRecording]);
 
   // One button: play scroll + record camera (with optional countdown from idle)
@@ -714,8 +722,36 @@ export default function App() {
         }}
       />
 
+      {/* REC indicator — muy visible en móvil */}
+      {isRecording && (
+        <div className="fixed top-[3.75rem] left-1/2 -translate-x-1/2 z-[60] pointer-events-none px-2">
+          <div className="px-4 py-2 rounded-full bg-red-600 text-white text-xs font-mono font-black shadow-editorial flex items-center gap-2 animate-pulse">
+            <span className="w-2.5 h-2.5 rounded-full bg-white" />
+            <span>
+              REC {String(Math.floor(recordingSeconds / 60)).padStart(2, '0')}:
+              {String(recordingSeconds % 60).padStart(2, '0')}
+            </span>
+            <span className="text-[10px] font-bold opacity-90 hidden sm:inline">
+              · Toca pausa para terminar
+            </span>
+          </div>
+        </div>
+      )}
+
+      {recorderError && (
+        <div className="fixed top-[6.5rem] left-1/2 -translate-x-1/2 z-[60] max-w-[92vw] px-2">
+          <button
+            type="button"
+            onClick={clearRecorderError}
+            className="px-3 py-2 rounded-xs bg-amber-500 text-black text-[11px] font-mono font-bold shadow-editorial text-center"
+          >
+            {recorderError} (tocar para cerrar)
+          </button>
+        </div>
+      )}
+
       {/* Voice tracking feedback — solo estado OK; errores se apagan solos sin banner rojo permanente */}
-      {settings.speechTracking && !voiceError && (
+      {settings.speechTracking && !voiceError && !isRecording && (
         <div className="fixed top-[3.75rem] left-1/2 -translate-x-1/2 z-50 max-w-[92vw] pointer-events-none px-2">
           <div className="px-3 py-1.5 rounded-full bg-emerald-500/95 text-black text-[10px] font-mono font-bold shadow-editorial flex items-center gap-2 justify-center">
             <span className={`w-1.5 h-1.5 rounded-full bg-black ${isListening ? 'animate-pulse' : 'opacity-40'}`} />
