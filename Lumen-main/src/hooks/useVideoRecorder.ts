@@ -6,6 +6,7 @@ import {
   getReadyAvStream,
   isMobileDevice,
   pickRecorderMimeType,
+  resumeRecordingAudioContext,
 } from '../utils/recordingCapture';
 
 export const getSupportedVideoMimeType = (): string => pickRecorderMimeType();
@@ -198,6 +199,7 @@ export const useVideoRecorder = ({
       stream.getTracks().forEach((t) => {
         t.enabled = true;
       });
+      resumeRecordingAudioContext();
 
       try {
         const mimeType = pickRecorderMimeType();
