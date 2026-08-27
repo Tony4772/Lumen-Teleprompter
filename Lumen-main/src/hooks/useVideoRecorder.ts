@@ -174,7 +174,7 @@ export const useVideoRecorder = ({
               : err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError'
                 ? 'No se detectó cámara o micrófono en este dispositivo.'
                 : err?.message === 'NO_AUDIO'
-                  ? 'Sin micrófono. Toca Iniciar y elige Permitir.'
+                  ? 'PERMISSION'
                   : 'No se pudo abrir cámara y micrófono. Toca Iniciar otra vez.'
       );
       return false;
@@ -213,8 +213,11 @@ export const useVideoRecorder = ({
         return false;
       }
 
-      // Si no hay mic en el stream del preview, seguimos con video (no matar la cámara).
-      // El audio se pedirá en el próximo ciclo si hace falta.
+      if (!stream.getAudioTracks().some((t) => t.readyState === 'live')) {
+        setRecorderError('PERMISSION');
+        setIsRecording(false);
+        return false;
+      }
 
       sessionStreamRef.current = stream;
       stream.getTracks().forEach((t) => {

@@ -165,14 +165,15 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
         setCameraError(null);
         // Solicitar cámara y micrófono juntos para que iOS/Android registre ambos permisos en un solo toque
         try {
+          // Constraints simples: más compatible en Chrome/Safari/Android/iOS
           stream = await navigator.mediaDevices.getUserMedia({
-            video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            video: true,
+            audio: true,
           });
         } catch {
-          // Fallback: si el micrófono no está disponible o fue denegado, abrir solo cámara
+          // Solo preview si el mic falla al cargar (sin gesto). El mic se pide en Iniciar.
           stream = await navigator.mediaDevices.getUserMedia({
-            video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+            video: true,
             audio: false,
           });
         }

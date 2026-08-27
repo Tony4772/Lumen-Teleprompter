@@ -1,11 +1,11 @@
 /**
- * Captura AV. Escritorio: comportamiento restaurado (preview + addTrack mic OK).
- * Móvil: un solo getUserMedia({video,audio}) — addTrack deja tomas mudas en iOS.
+ * Captura AV universal (móvil y escritorio).
+ * - Si ya hay video+audio vivos → reutilizar (no apagar preview).
+ * - Si falta mic → getUserMedia({video,audio}) en el gesto; solo entonces reemplazar el stream.
  */
 import {
   getSharedCameraStream,
   setSharedCameraStream,
-  releaseSharedCameraStreamSync,
   isAppleTouchDevice,
 } from './cameraStreamStore';
 
@@ -17,9 +17,6 @@ export function isMobileDevice(): boolean {
   );
 }
 
-/**
- * Detecta el mejor formato. Apple: MP4+AAC. Resto: WebM/MP4.
- */
 export function pickRecorderMimeType(): string {
   if (typeof MediaRecorder === 'undefined') return '';
   const apple = isAppleTouchDevice();
@@ -33,15 +30,11 @@ export function pickRecorderMimeType(): string {
         'video/webm',
       ]
     : [
-        'video/mp4;codecs=avc1,mp4a.40.2',
-        'video/mp4;codecs=avc1',
-        'video/mp4;codecs=h264,aac',
-        'video/mp4',
         'video/webm;codecs=vp8,opus',
         'video/webm;codecs=vp9,opus',
-        'video/webm;codecs=h264,opus',
-        'video/webm;codecs=opus',
         'video/webm',
+        'video/mp4;codecs=avc1,mp4a.40.2',
+        'video/mp4',
       ];
 
   for (const t of candidates) {
@@ -66,124 +59,54 @@ export function getReadyAvStream(): MediaStream | null {
   return null;
 }
 
-const OPTIMAL_AV_CONSTRAINTS: MediaStreamConstraints = {
-  video: {
-    facingMode: 'user',
-    width: { ideal: 1280 },
-    height: { ideal: 720 },
-  },
-  audio: {
-    echoCancellation: true,
-    noiseSuppression: true,
-    autoGainControl: true,
-  },
-};
-
-const STANDARD_AV_CONSTRAINTS: MediaStreamConstraints = {
-  video: { facingMode: 'user' },
-  audio: true,
-};
-
-const GENERIC_AV_CONSTRAINTS: MediaStreamConstraints = {
-  video: true,
-  audio: true,
-};
-
-/** Escritorio: con fallbacks (incluye video-only). */
-function requestDesktopAvStream(): Promise<MediaStream> {
+/**
+ * Pedir video+audio. No detener el preview hasta tener el nuevo stream OK.
+ */
+function requestAvStream(): Promise<MediaStream> {
   if (!navigator.mediaDevices?.getUserMedia) {
     return Promise.reject(new Error('NO_MEDIA_DEVICES'));
   }
 
   return navigator.mediaDevices
-    .getUserMedia(OPTIMAL_AV_CONSTRAINTS)
-    .catch(() => navigator.mediaDevices.getUserMedia(STANDARD_AV_CONSTRAINTS))
-    .catch(() => navigator.mediaDevices.getUserMedia(GENERIC_AV_CONSTRAINTS))
+    .getUserMedia({ video: true, audio: true })
     .catch(() =>
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true })
     )
-    .catch(() => navigator.mediaDevices.getUserMedia({ video: true }))
     .then((stream) => {
       stream.getTracks().forEach((t) => {
         t.enabled = true;
       });
+      if (!isLive(stream, 'video')) {
+        stream.getTracks().forEach((t) => t.stop());
+        throw new Error('NO_VIDEO');
+      }
+      if (!isLive(stream, 'audio')) {
+        stream.getTracks().forEach((t) => t.stop());
+        throw new Error('NO_AUDIO');
+      }
+      // Solo aquí se sustituye el preview (video-only u otro).
       setSharedCameraStream(stream, { stopPrevious: true });
       return stream;
     });
 }
 
-/** Móvil: una sola getUserMedia AV. No soltar tracks antes (rompe el permiso en iOS). */
-function requestMobileAvStream(): Promise<MediaStream> {
-  if (!navigator.mediaDevices?.getUserMedia) {
-    return Promise.reject(new Error('NO_MEDIA_DEVICES'));
-  }
-
-  return navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then((stream) => {
-    stream.getTracks().forEach((t) => {
-      t.enabled = true;
-    });
-    if (!isLive(stream, 'video')) {
-      stream.getTracks().forEach((t) => t.stop());
-      throw new Error('NO_VIDEO');
-    }
-    if (!isLive(stream, 'audio')) {
-      stream.getTracks().forEach((t) => t.stop());
-      throw new Error('NO_AUDIO');
-    }
-    setSharedCameraStream(stream, { stopPrevious: true });
-    return stream;
-  });
-}
-
 /**
- * CRÍTICO: llamar de forma SÍNCRONA en el onClick (sin await antes).
+ * Llamar SÍNCRONO en el onClick de Iniciar (gesto del usuario).
  */
 export function beginAvCaptureFromUserGesture(): Promise<MediaStream> {
-  // Si el preview YA tiene cámara viva (caso: página cargada con permiso),
-  // reutilizar SIEMPRE. Un segundo getUserMedia en iPhone apaga el vídeo.
   const shared = getSharedCameraStream();
-  if (shared && isLive(shared, 'video')) {
+
+  // Ya hay cámara + mic → no tocar nada (mantiene preview y graba con audio).
+  if (shared && isLive(shared, 'video') && isLive(shared, 'audio')) {
     shared.getTracks().forEach((t) => {
       t.enabled = true;
     });
     return Promise.resolve(shared);
   }
 
-  if (!navigator.mediaDevices?.getUserMedia) {
-    return Promise.reject(new Error('NO_MEDIA_DEVICES'));
-  }
-
-  if (isMobileDevice()) {
-    return requestMobileAvStream();
-  }
-
-  // ——— ESCRITORIO (igual que antes de la regresión) ———
-  const currentPreview = getSharedCameraStream();
-  if (currentPreview && isLive(currentPreview, 'video')) {
-    if (isLive(currentPreview, 'audio')) {
-      currentPreview.getTracks().forEach((t) => {
-        t.enabled = true;
-      });
-      return Promise.resolve(currentPreview);
-    }
-
-    return navigator.mediaDevices
-      .getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      })
-      .catch(() => navigator.mediaDevices.getUserMedia({ audio: true }))
-      .then((audioStream) => {
-        audioStream.getAudioTracks().forEach((t) => {
-          t.enabled = true;
-          currentPreview.addTrack(t);
-        });
-        setSharedCameraStream(currentPreview, { stopPrevious: false });
-        return currentPreview;
-      })
-      .catch(() => currentPreview);
-  }
-
-  return requestDesktopAvStream();
+  // Falta mic (o no hay stream): pedir AV en este gesto.
+  // Si falla, el preview anterior NO se apaga (stopPrevious solo tras éxito).
+  return requestAvStream();
 }
 
 /** @deprecated */
