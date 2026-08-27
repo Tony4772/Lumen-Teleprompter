@@ -24,6 +24,24 @@ export function getSharedCameraStream(): MediaStream | null {
   return sharedCameraStream;
 }
 
+/** Para iPhone: soltar preview video-only al instante antes de abrir video+audio. */
+export function releaseSharedCameraStreamSync(): void {
+  const prev = sharedCameraStream;
+  sharedCameraStream = null;
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(CAMERA_STREAM_EVENT));
+  }
+  if (prev) {
+    prev.getTracks().forEach((t) => {
+      try {
+        t.stop();
+      } catch {
+        // ignore
+      }
+    });
+  }
+}
+
 export function isAppleTouchDevice(): boolean {
   if (typeof navigator === 'undefined') return false;
   return (

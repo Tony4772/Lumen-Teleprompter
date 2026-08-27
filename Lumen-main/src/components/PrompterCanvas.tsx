@@ -158,14 +158,39 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
+        // Si ya hay stream con audio (grabación iPhone), no pisarlo con video-only
+        const fromRecorder = getSharedCameraStream();
+        if (
+          fromRecorder &&
+          fromRecorder !== stream &&
+          fromRecorder.getAudioTracks().some((t) => t.readyState === 'live') &&
+          fromRecorder.getVideoTracks().some((t) => t.readyState === 'live')
+        ) {
+          stream.getTracks().forEach((t) => t.stop());
+          stream = fromRecorder;
+          ownsStream = false;
+          attachToVideo(fromRecorder);
+          setCameraError(null);
+          return;
+        }
         ownsStream = true;
         setSharedCameraStream(stream);
         attachToVideo(stream);
       } catch (err) {
         console.warn('Webcam not accessible:', err);
         setIsCameraReady(false);
+        const fromRecorder = getSharedCameraStream();
+        if (
+          fromRecorder &&
+          fromRecorder.getVideoTracks().some((t) => t.readyState === 'live')
+        ) {
+          stream = fromRecorder;
+          ownsStream = false;
+          attachToVideo(fromRecorder);
+          setCameraError(null);
+          return;
+        }
         setCameraError('No se pudo acceder a la cámara web.');
-        setSharedCameraStream(null);
       }
     };
 

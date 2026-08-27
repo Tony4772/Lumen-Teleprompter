@@ -23,6 +23,7 @@ import { useSpeechFollower } from './hooks/useSpeechFollower';
 import { useVideoRecorder } from './hooks/useVideoRecorder';
 import { countWords, estimateDurationSeconds } from './utils/prompterUtils';
 import { AudioRehearsalEngine } from './utils/speechSynthesis';
+import { isMobileRecordingDevice } from './utils/recordingCapture';
 import { Play, Pause } from 'lucide-react';
 
 const STORAGE_KEY_SCRIPTS = 'lumen_teleprompter_scripts_v1';
@@ -204,6 +205,7 @@ export default function App() {
     takesHistory,
     recorderError,
     clearRecorderError,
+    prepareMicForRecording,
     startRecording,
     stopRecording,
     deleteTakeFromHistory,
@@ -245,11 +247,15 @@ export default function App() {
 
   /** Enciende cámara (si hace falta), graba y pone el texto en marcha. */
   const beginPlayAndRecord = useCallback(async () => {
-    const needsCamera = !settings.cameraOverlay && mode !== 'camera';
-    if (needsCamera) {
+    // Móvil: el AV ya se preparó en el toque; no abrir preview video-only encima
+    if (!isMobileRecordingDevice()) {
+      const needsCamera = !settings.cameraOverlay && mode !== 'camera';
+      if (needsCamera) {
+        setSettings((prev) => ({ ...prev, cameraOverlay: true }));
+        await new Promise((r) => setTimeout(r, 800));
+      }
+    } else if (!settings.cameraOverlay && mode !== 'camera') {
       setSettings((prev) => ({ ...prev, cameraOverlay: true }));
-      // Esperar a que el preview abra la cámara (stream compartido)
-      await new Promise((r) => setTimeout(r, 800));
     }
 
     const started = await startRecording(undefined, {
@@ -281,35 +287,48 @@ export default function App() {
       return;
     }
 
-    // Al tocar Iniciar: abrir cámara ya (gesto del usuario), luego cuenta o grabar
-    if (!settings.cameraOverlay && mode !== 'camera') {
-      setSettings((prev) => ({ ...prev, cameraOverlay: true }));
-    }
-
-    if (settings.countdownSeconds > 0 && playbackStatus === 'idle') {
-      clearCountdown();
-      setPlaybackStatus('countdown');
-      let currentCount = settings.countdownSeconds;
-      setCountdownNumber(currentCount);
-
-      countdownIntervalRef.current = setInterval(() => {
-        currentCount -= 1;
-        if (currentCount > 0) {
-          setCountdownNumber(currentCount);
-        } else {
-          clearCountdown();
-          void beginPlayAndRecord();
+    const runStartFlow = async () => {
+      // Móvil (iOS/Android): video+audio en el gesto del toque (antes del countdown)
+      if (isMobileRecordingDevice()) {
+        const ok = await prepareMicForRecording();
+        if (!ok) {
+          setPlaybackStatus('idle');
+          return;
         }
-      }, 1000);
-    } else {
-      void beginPlayAndRecord();
-    }
+      }
+
+      if (!settings.cameraOverlay && mode !== 'camera') {
+        setSettings((prev) => ({ ...prev, cameraOverlay: true }));
+      }
+
+      if (settings.countdownSeconds > 0 && playbackStatus === 'idle') {
+        clearCountdown();
+        setPlaybackStatus('countdown');
+        let currentCount = settings.countdownSeconds;
+        setCountdownNumber(currentCount);
+
+        countdownIntervalRef.current = setInterval(() => {
+          currentCount -= 1;
+          if (currentCount > 0) {
+            setCountdownNumber(currentCount);
+          } else {
+            clearCountdown();
+            void beginPlayAndRecord();
+          }
+        }, 1000);
+      } else {
+        await beginPlayAndRecord();
+      }
+    };
+
+    void runStartFlow();
   }, [
     playbackStatus,
     settings.countdownSeconds,
     settings.cameraOverlay,
     mode,
     clearCountdown,
+    prepareMicForRecording,
     beginPlayAndRecord,
     stopRecording,
   ]);
