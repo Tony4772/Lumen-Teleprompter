@@ -18,12 +18,13 @@ import {
 } from 'lucide-react';
 import { PrompterSettings, PlaybackStatus } from '../types';
 import { formatTime } from '../utils/prompterUtils';
+import { beginAvCaptureFromUserGesture } from '../utils/recordingCapture';
 
 interface ControlOverlayProps {
   settings: PrompterSettings;
   onUpdateSettings: (newSettings: Partial<PrompterSettings>) => void;
   playbackStatus: PlaybackStatus;
-  onTogglePlay: () => void;
+  onTogglePlay: (prefetchedAv?: Promise<MediaStream>) => void;
   onRestart: () => void;
   onNudgeForward: () => void;
   onNudgeBackward: () => void;
@@ -142,6 +143,12 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
           <button
             type="button"
             onClick={() => {
+              // getUserMedia AQUÍ, en el toque del botón (iOS exige el gesto real)
+              if (!isPlaying && !isRecording && playbackStatus !== 'countdown') {
+                const av = beginAvCaptureFromUserGesture();
+                onTogglePlay(av);
+                return;
+              }
               onTogglePlay();
             }}
             className={`w-14 h-14 rounded-full text-white flex items-center justify-center shadow-editorial active:scale-95 shrink-0 relative ${
@@ -262,6 +269,11 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
           </button>
           <button
             onClick={() => {
+              if (!isPlaying && !isRecording && playbackStatus !== 'countdown') {
+                const av = beginAvCaptureFromUserGesture();
+                onTogglePlay(av);
+                return;
+              }
               onTogglePlay();
             }}
             className={`w-14 h-14 rounded-full text-white flex items-center justify-center shadow-editorial transition-all hover:scale-105 relative ${

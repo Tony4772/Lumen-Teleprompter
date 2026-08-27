@@ -265,7 +265,7 @@ export default function App() {
     setPlaybackStatus(started ? 'playing' : 'paused');
   }, [settings.cameraOverlay, mode, startRecording]);
 
-  const handleTogglePlay = useCallback(() => {
+  const handleTogglePlay = useCallback((prefetchedAv?: Promise<MediaStream>) => {
     if (playbackStatus === 'countdown') {
       clearCountdown();
       setPlaybackStatus('idle');
@@ -280,11 +280,10 @@ export default function App() {
       return;
     }
 
-    // Primero: getUserMedia en el gesto (nada antes).
-    const avPromise = beginAvCaptureFromUserGesture();
+    // Preferir la Promise disparada en el onClick del botón Iniciar.
+    const avPromise = prefetchedAv ?? beginAvCaptureFromUserGesture();
 
-    // Encender preview YA para que el <video> exista cuando llegue el stream.
-    // Si falla el permiso, lo apagamos abajo.
+    // Siempre mostrar el marco de cámara al iniciar (como al activarla en Ajustes).
     setSettings((prev) => ({
       ...prev,
       cameraOverlay: true,
@@ -298,7 +297,7 @@ export default function App() {
       const ready = await adoptAvPromise(avPromise);
       if (!ready) {
         setPlaybackStatus('idle');
-        setSettings((prev) => ({ ...prev, cameraOverlay: false }));
+        // No apagar cameraOverlay: el preview debe quedarse visible.
         return;
       }
 

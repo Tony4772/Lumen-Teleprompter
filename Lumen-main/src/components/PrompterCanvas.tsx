@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { PrompterSettings, PlaybackStatus, CameraLayout } from '../types';
 import { parseScriptContent, ParsedLine, countLineScriptWords } from '../utils/prompterUtils';
 import { setSharedCameraStream, getSharedCameraStream, CAMERA_STREAM_EVENT } from '../utils/cameraStreamStore';
-import { isMobileDevice } from '../utils/recordingCapture';
+import { isMobileDevice, beginAvCaptureFromUserGesture } from '../utils/recordingCapture';
 import { 
   Eye, 
   ArrowRight, 
@@ -30,7 +30,7 @@ interface PrompterCanvasProps {
   content: string;
   settings: PrompterSettings;
   playbackStatus: PlaybackStatus;
-  onTogglePlay: () => void;
+  onTogglePlay: (prefetchedAv?: Promise<MediaStream>) => void;
   onRestart?: () => void;
   onReachedEnd?: () => void;
   onUpdateSettings?: (newSettings: Partial<PrompterSettings>) => void;
@@ -246,12 +246,25 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
     };
     window.addEventListener(CAMERA_STREAM_EVENT, onExternalStream);
 
+    // También mirar el store compartido: si el evento se perdió (Iniciar antes
+    // de montar el <video>), aquí se engancha el preview.
     const syncInterval = setInterval(() => {
-      if (isCameraEnabled && stream && videoRef.current) {
-        const vTracks = stream.getVideoTracks();
-        if (vTracks.length > 0 && (!videoRef.current.srcObject || (videoRef.current.srcObject as MediaStream).getVideoTracks()[0] !== vTracks[0])) {
-          attachToVideo(stream);
-        }
+      if (!isCameraEnabled) return;
+      const shared = getSharedCameraStream();
+      const active =
+        shared && shared.getVideoTracks().some((t) => t.readyState === 'live')
+          ? shared
+          : stream;
+      if (!active || !videoRef.current) return;
+      stream = active;
+      ownsStream = false;
+      const vTracks = active.getVideoTracks();
+      const current = videoRef.current.srcObject as MediaStream | null;
+      if (
+        vTracks.length > 0 &&
+        (!current || current.getVideoTracks()[0] !== vTracks[0])
+      ) {
+        attachToVideo(active);
       }
     }, 150);
 
@@ -259,7 +272,6 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
       cancelled = true;
       clearInterval(syncInterval);
       window.removeEventListener(CAMERA_STREAM_EVENT, onExternalStream);
-      // Solo detener tracks si este efecto los abrió (no los del grabador)
       if (ownsStream && stream) {
         stream.getTracks().forEach((t) => t.stop());
         if (getSharedCameraStream() === stream) {
