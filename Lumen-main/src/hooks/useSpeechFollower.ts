@@ -18,6 +18,12 @@ function tokensMatch(spoken: string, script: string): boolean {
   return false;
 }
 
+function isSpeechRecognitionAvailable(): boolean {
+  return Boolean(
+    (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+  );
+}
+
 export function useSpeechFollower({
   enabled,
   scriptContent,
@@ -38,6 +44,7 @@ export function useSpeechFollower({
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startListeningRef = useRef<() => void>(() => {});
   const intentionalStopRef = useRef(false);
+  const restartAttemptsRef = useRef(0);
 
   enabledRef.current = enabled;
   onMatchProgressRef.current = onMatchProgress;
@@ -120,12 +127,23 @@ export function useSpeechFollower({
     setIsListening(false);
   }, []);
 
+  const failClosed = useCallback((softMessage?: string) => {
+    intentionalStopRef.current = true;
+    enabledRef.current = false;
+    setIsListening(false);
+    // Mensaje breve opcional; el UI apaga Voz y no deja banner rojo permanente
+    if (softMessage) setError(softMessage);
+    else setError(null);
+    onPermissionDeniedRef.current?.();
+    window.setTimeout(() => setError(null), 2500);
+  }, []);
+
   const startListening = useCallback(() => {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      setError('El reconocimiento de voz no está disponible. Usa Chrome o Edge.');
+      failClosed('Voz no disponible en este navegador.');
       return;
     }
 
@@ -146,12 +164,15 @@ export function useSpeechFollower({
     }
 
     const recognition = new SpeechRecognition();
-    recognition.continuous = true;
+    // continuous=false es más estable en móvil; reiniciamos en onend
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    recognition.continuous = !isMobile;
     recognition.interimResults = true;
-    recognition.lang = 'es-PE';
-    recognition.maxAlternatives = 3;
+    recognition.lang = 'es-ES';
+    recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
+      restartAttemptsRef.current = 0;
       setIsListening(true);
       setError(null);
     };
@@ -159,31 +180,39 @@ export function useSpeechFollower({
     recognition.onerror = (event: any) => {
       const code = event?.error as string;
       console.warn('Speech recognition error:', code);
+
+      // Errores normales / recuperables: no mostrar nada rojo
+      if (code === 'no-speech' || code === 'aborted' || code === 'network') {
+        return;
+      }
+
       if (code === 'not-allowed' || code === 'service-not-allowed') {
-        setError('Permiso de micrófono denegado. Actívalo en el navegador.');
-        enabledRef.current = false;
-        setIsListening(false);
-        onPermissionDeniedRef.current?.();
+        // Sin banner rojo agresivo: apagar Voz en silencio
+        failClosed();
         return;
       }
+
       if (code === 'audio-capture') {
-        setError('No se encontró un micrófono.');
+        // Suele ser conflicto con la grabación; reintentar o apagar suave
+        restartAttemptsRef.current += 1;
+        if (restartAttemptsRef.current > 2) {
+          failClosed();
+        }
         return;
       }
-      if (code !== 'no-speech' && code !== 'aborted') {
-        setError(`Error de voz: ${code}`);
-      }
+
+      // Otros: no molestar en UI
+      console.warn('Speech error ignored in UI:', code);
     };
 
     recognition.onend = () => {
       setIsListening(false);
       if (intentionalStopRef.current || !enabledRef.current) return;
-      // Chrome corta el reconocimiento continuo: recrear instancia (no reusar la misma)
       if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
       restartTimerRef.current = setTimeout(() => {
         if (!enabledRef.current || intentionalStopRef.current) return;
         startListeningRef.current();
-      }, 320);
+      }, isMobile ? 450 : 320);
     };
 
     recognition.onresult = (event: any) => {
@@ -214,26 +243,14 @@ export function useSpeechFollower({
 
     recognitionRef.current = recognition;
 
-    const kickOff = async () => {
-      // Desbloquear micrófono en algunos navegadores antes del SpeechRecognition
-      try {
-        if (navigator.mediaDevices?.getUserMedia) {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          stream.getTracks().forEach((t) => t.stop());
-        }
-      } catch {
-        // SpeechRecognition pedirá permiso igual
-      }
-      try {
-        recognition.start();
-      } catch (err) {
-        console.error('Error starting speech recognition:', err);
-        setError('No se pudo iniciar el micrófono');
-      }
-    };
-
-    void kickOff();
-  }, [matchSpokenTokens]);
+    // NO usar getUserMedia aquí: en móvil provoca not-allowed / doble prompt
+    try {
+      recognition.start();
+    } catch (err) {
+      console.error('Error starting speech recognition:', err);
+      failClosed();
+    }
+  }, [matchSpokenTokens, failClosed]);
 
   startListeningRef.current = startListening;
 
@@ -246,6 +263,10 @@ export function useSpeechFollower({
 
   useEffect(() => {
     if (enabled) {
+      if (!isSpeechRecognitionAvailable()) {
+        failClosed('Voz no disponible en este navegador.');
+        return;
+      }
       startListening();
     } else {
       stopListening();

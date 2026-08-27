@@ -80,7 +80,11 @@ export default function App() {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_SETTINGS);
       if (saved) {
-        return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+        const loaded = { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+        // Nunca auto-activar voz al cargar: en móvil el ASR sin gesto del usuario
+        // dispara "not-allowed" y muestra el error rojo.
+        loaded.speechTracking = false;
+        return loaded;
       }
     } catch (e) {
       console.warn('Failed to load saved settings:', e);
@@ -709,25 +713,19 @@ export default function App() {
         }}
       />
 
-      {/* Voice tracking feedback — compact on mobile */}
-      {settings.speechTracking && (
+      {/* Voice tracking feedback — solo estado OK; errores se apagan solos sin banner rojo permanente */}
+      {settings.speechTracking && !voiceError && (
         <div className="fixed top-[3.75rem] left-1/2 -translate-x-1/2 z-50 max-w-[92vw] pointer-events-none px-2">
-          {voiceError ? (
-            <div className="px-3 py-1.5 rounded-full bg-red-600 text-white text-[10px] sm:text-xs font-mono font-bold shadow-editorial text-center">
-              {voiceError}
-            </div>
-          ) : (
-            <div className="px-3 py-1.5 rounded-full bg-emerald-500/95 text-black text-[10px] font-mono font-bold shadow-editorial flex items-center gap-2 justify-center">
-              <span className={`w-1.5 h-1.5 rounded-full bg-black ${isListening ? 'animate-pulse' : 'opacity-40'}`} />
-              <span className="truncate max-w-[70vw]">
-                {isListening
-                  ? lastTranscript
-                    ? `«${lastTranscript}»`
-                    : 'Escuchando…'
-                  : 'Mic…'}
-              </span>
-            </div>
-          )}
+          <div className="px-3 py-1.5 rounded-full bg-emerald-500/95 text-black text-[10px] font-mono font-bold shadow-editorial flex items-center gap-2 justify-center">
+            <span className={`w-1.5 h-1.5 rounded-full bg-black ${isListening ? 'animate-pulse' : 'opacity-40'}`} />
+            <span className="truncate max-w-[70vw]">
+              {isListening
+                ? lastTranscript
+                  ? `«${lastTranscript}»`
+                  : 'Escuchando…'
+                : 'Mic…'}
+            </span>
+          </div>
         </div>
       )}
 
