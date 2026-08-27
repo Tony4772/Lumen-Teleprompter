@@ -158,9 +158,9 @@ export const useVideoRecorder = ({
         return true;
       }
 
-      setRecorderError(
+  setRecorderError(
         err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError'
-          ? 'Toca otra vez Iniciar y elige Permitir.'
+          ? 'PERMISSION'
           : err?.name === 'NotReadableError' || err?.name === 'TrackStartError'
             ? 'La cámara o el micrófono están en uso por otra app. Ciérrala y vuelve a Iniciar.'
             : err?.name === 'OverconstrainedError'

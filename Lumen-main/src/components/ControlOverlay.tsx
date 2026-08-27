@@ -143,9 +143,11 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
           <button
             type="button"
             onClick={() => {
-              // getUserMedia AQUÍ, en el toque del botón (iOS exige el gesto real)
               if (!isPlaying && !isRecording && playbackStatus !== 'countdown') {
-                const av = beginAvCaptureFromUserGesture();
+                // Llamada directa: nada de wrappers antes del gesto
+                const av = navigator.mediaDevices?.getUserMedia
+                  ? navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                  : beginAvCaptureFromUserGesture();
                 onTogglePlay(av);
                 return;
               }
@@ -270,7 +272,9 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
           <button
             onClick={() => {
               if (!isPlaying && !isRecording && playbackStatus !== 'countdown') {
-                const av = beginAvCaptureFromUserGesture();
+                const av = navigator.mediaDevices?.getUserMedia
+                  ? navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                  : beginAvCaptureFromUserGesture();
                 onTogglePlay(av);
                 return;
               }

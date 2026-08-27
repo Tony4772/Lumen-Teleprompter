@@ -847,10 +847,23 @@ export default function App() {
         <div className="fixed top-[6.5rem] left-1/2 -translate-x-1/2 z-[60] max-w-[92vw] px-2">
           <button
             type="button"
-            onClick={clearRecorderError}
-            className="px-3 py-2 rounded-xs bg-neutral-900/90 text-white text-[11px] font-mono shadow-editorial text-center border border-white/20"
+            onClick={() => {
+              const av = beginAvCaptureFromUserGesture();
+              void adoptAvPromise(av).then((ok) => {
+                if (!ok) return;
+                clearRecorderError();
+                setSettings((prev) => ({
+                  ...prev,
+                  cameraOverlay: true,
+                  cameraLayout: prev.cameraLayout || 'pip',
+                }));
+              });
+            }}
+            className="px-4 py-3 rounded-xs bg-[#121212] text-white text-[12px] font-bold shadow-editorial text-center border-2 border-white/40 active:scale-95"
           >
-            {recorderError}
+            {recorderError === 'PERMISSION'
+              ? 'Toca aquí para permitir cámara y micrófono'
+              : recorderError}
           </button>
         </div>
       )}

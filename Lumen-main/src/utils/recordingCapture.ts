@@ -112,15 +112,10 @@ function requestDesktopAvStream(): Promise<MediaStream> {
     });
 }
 
-/** Móvil: una sola llamada AV. Sin addTrack. Sin fallback mudo. */
+/** Móvil: una sola getUserMedia AV. No soltar tracks antes (rompe el permiso en iOS). */
 function requestMobileAvStream(): Promise<MediaStream> {
   if (!navigator.mediaDevices?.getUserMedia) {
     return Promise.reject(new Error('NO_MEDIA_DEVICES'));
-  }
-
-  const prev = getSharedCameraStream();
-  if (prev && isLive(prev, 'video') && !isLive(prev, 'audio')) {
-    releaseSharedCameraStreamSync();
   }
 
   return navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then((stream) => {
