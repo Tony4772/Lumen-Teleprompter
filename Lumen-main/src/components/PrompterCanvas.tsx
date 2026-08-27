@@ -75,10 +75,15 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
   const [tapFeedback, setTapFeedback] = useState<{ x: number; y: number; type: 'play' | 'pause' | 'restart' } | null>(null);
   const [showCompletedBanner, setShowCompletedBanner] = useState(false);
   const [isSpeedHUDOpen, setIsSpeedHUDOpen] = useState(false);
+  const [pipPosition, setPipPosition] = useState({ x: 20, y: 70 }); // in px from top-right or similar
 
   // Touch gesture tracking for mobile swipe & double tap
   const lastTapTimeRef = useRef<number>(0);
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+
+  // Dragging state for PiP
+  const isDraggingRef = useRef(false);
+  const dragOffsetRef = useRef({ x: 0, y: 0 });
 
   const formatRecTime = (sec: number) => {
     const mins = Math.floor(sec / 60);
@@ -346,11 +351,38 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
 
   // Webcam Sub-Component View with framing guides and quick controls
   const renderWebcamSurface = (isFloating = false) => (
-    <div className={`relative overflow-hidden bg-[#0a0a0a] flex items-center justify-center ${
-      isFloating 
-        ? 'w-full h-full rounded-xs shadow-2xl border-2 border-white/40' 
-        : 'w-full h-full'
-    }`}>
+    <div
+      className={`relative overflow-hidden bg-[#0a0a0a] flex items-center justify-center ${
+        isFloating
+          ? 'w-full h-full rounded-xs shadow-2xl border-2 border-white/40 touch-none'
+          : 'w-full h-full'
+      }`}
+      onPointerDown={(e) => {
+        if (!isFloating) return;
+        e.stopPropagation();
+        isDraggingRef.current = true;
+        const rect = e.currentTarget.getBoundingClientRect();
+        dragOffsetRef.current = {
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+        };
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }}
+      onPointerMove={(e) => {
+        if (!isFloating || !isDraggingRef.current) return;
+        e.stopPropagation();
+        setPipPosition({
+          x: e.clientX - dragOffsetRef.current.x,
+          y: e.clientY - dragOffsetRef.current.y,
+        });
+      }}
+      onPointerUp={(e) => {
+        if (!isFloating) return;
+        e.stopPropagation();
+        isDraggingRef.current = false;
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }}
+    >
       {/* Video element */}
       <video
         ref={videoRef}
@@ -396,7 +428,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
             </div>
           ) : (
             <div className="flex items-center gap-1.5 bg-black/75 backdrop-blur-md border border-white/20 px-2.5 py-1 rounded-full text-white text-[10px] font-mono uppercase tracking-widest">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-red-500" />
               <span>WEBCAM</span>
             </div>
           )}
@@ -745,7 +777,14 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
 
       {/* FLOATING PICTURE-IN-PICTURE (PIP) CAMERA MODE */}
       {isCameraEnabled && settings.cameraLayout === 'pip' && (
-        <div className="absolute top-16 right-4 sm:top-20 sm:right-6 z-30 w-64 sm:w-80 aspect-video shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+        <div
+          className="absolute z-30 w-52 sm:w-80 aspect-video shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+          style={{
+            left: `${pipPosition.x}px`,
+            top: `${pipPosition.y}px`,
+            position: 'absolute'
+          }}
+        >
           {renderWebcamSurface(true)}
         </div>
       )}
@@ -855,7 +894,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
                 </>
               ) : (
                 <>
-                  <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                  <span className="w-2 h-2 rounded-full bg-red-500" />
                   <span>REC</span>
                 </>
               )}

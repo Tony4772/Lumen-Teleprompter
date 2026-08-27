@@ -297,7 +297,8 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
           {/* Record Video Button (Mobile optimized) */}
           {onToggleRecord && (
             <button
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 triggerHaptic(30);
                 onToggleRecord();
               }}
@@ -314,7 +315,7 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
                 </>
               ) : (
                 <>
-                  <span className="w-2 h-2 rounded-full bg-red-600 animate-ping" />
+                  <span className="w-2 h-2 rounded-full bg-red-600" />
                   <span>REC</span>
                 </>
               )}
