@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { PrompterSettings, PlaybackStatus, CameraLayout } from '../types';
 import { parseScriptContent, ParsedLine, countLineScriptWords } from '../utils/prompterUtils';
 import { setSharedCameraStream, getSharedCameraStream, CAMERA_STREAM_EVENT } from '../utils/cameraStreamStore';
-import { isMobileDevice } from '../utils/recordingCapture';
 import { 
   Eye, 
   ArrowRight, 
@@ -152,7 +151,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
     const setupCamera = async () => {
       if (!isCameraEnabled) return;
 
-      // Si el grabador ya abrió un stream, reutilizarlo
+      // Si el grabador ya abrió un stream AV, reutilizarlo
       const existing = getSharedCameraStream();
       if (existing && existing.getVideoTracks().some((t) => t.readyState === 'live')) {
         stream = existing;
@@ -162,22 +161,16 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
         return;
       }
 
-      // Móvil: NUNCA pedir getUserMedia aquí (useEffect = sin gesto → NotAllowed
-      // para todos los usuarios). Solo esperar el stream de Iniciar.
-      if (isMobileDevice()) {
-        setIsCameraReady(false);
-        setCameraError(null);
-        return;
-      }
-
       try {
         setCameraError(null);
+        // Solicitar cámara y micrófono juntos para que iOS/Android registre ambos permisos en un solo toque
         try {
           stream = await navigator.mediaDevices.getUserMedia({
             video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
             audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
           });
         } catch {
+          // Fallback: si el micrófono no está disponible o fue denegado, abrir solo cámara
           stream = await navigator.mediaDevices.getUserMedia({
             video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
             audio: false,
@@ -186,21 +179,6 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
 
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-
-        const current = getSharedCameraStream();
-        if (
-          current &&
-          current !== stream &&
-          current.getVideoTracks().some((t) => t.readyState === 'live') &&
-          current.getAudioTracks().some((t) => t.readyState === 'live')
-        ) {
-          stream.getTracks().forEach((t) => t.stop());
-          stream = current;
-          ownsStream = false;
-          attachToVideo(current);
-          setCameraError(null);
           return;
         }
 
@@ -469,23 +447,6 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
     if (isTap) {
       const now = Date.now();
       const doubleTapDelay = 350;
-      const mobile = isMobileDevice();
-
-      // Móvil: play/pausa al instante. Un setTimeout rompe el gesto de Safari
-      // y getUserMedia falla con NotAllowedError para TODOS los usuarios (sin diálogo).
-      if (mobile) {
-        triggerHaptic(20);
-        onTogglePlay();
-        setTapFeedback({
-          x: touch.clientX,
-          y: touch.clientY,
-          type: playbackStatus === 'playing' ? 'pause' : 'play',
-        });
-        setTimeout(() => setTapFeedback(null), 600);
-        lastTapTimeRef.current = now;
-        touchStartRef.current = null;
-        return;
-      }
 
       if (now - lastTapTimeRef.current < doubleTapDelay) {
         // Double tap: Restart from top
@@ -700,11 +661,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      onClick={() => {
-        // En móvil el touchend ya dispara play; el click sintético volvería a pausar.
-        if (isMobileDevice()) return;
-        onTogglePlay();
-      }}
+      onClick={onTogglePlay}
       className={`w-full h-full overflow-y-auto no-scrollbar cursor-pointer z-10 relative ${
         isMirroredX && isMirroredY
           ? 'mirror-both'

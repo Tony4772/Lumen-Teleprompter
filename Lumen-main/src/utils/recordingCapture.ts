@@ -1,6 +1,6 @@
 /**
- * Captura AV. Escritorio: sin cambios de comportamiento.
- * Móvil: UNA sola llamada getUserMedia en el gesto del usuario (Iniciar).
+ * Captura AV. Escritorio: comportamiento restaurado (preview + addTrack mic OK).
+ * Móvil: un solo getUserMedia({video,audio}) — addTrack deja tomas mudas en iOS.
  */
 import {
   getSharedCameraStream,
@@ -18,37 +18,32 @@ export function isMobileDevice(): boolean {
 }
 
 /**
- * Detecta el mejor formato. En móvil prioriza MP4 con AAC (pista de audio).
+ * Detecta el mejor formato. Apple: MP4+AAC. Resto: WebM/MP4.
  */
 export function pickRecorderMimeType(): string {
   if (typeof MediaRecorder === 'undefined') return '';
-  const mobile = isMobileDevice();
   const apple = isAppleTouchDevice();
-
-  const mobileCandidates = [
-    'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
-    'video/mp4;codecs=avc1,mp4a.40.2',
-    'video/mp4',
-    'video/webm;codecs=vp8,opus',
-    'video/webm',
-  ];
-
-  const desktopCandidates = apple
+  const candidates = apple
     ? [
         'video/mp4;codecs=avc1,mp4a.40.2',
         'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+        'video/mp4;codecs=h264,aac',
+        'video/mp4;codecs=avc1',
         'video/mp4',
         'video/webm',
       ]
     : [
+        'video/mp4;codecs=avc1,mp4a.40.2',
+        'video/mp4;codecs=avc1',
+        'video/mp4;codecs=h264,aac',
+        'video/mp4',
         'video/webm;codecs=vp8,opus',
         'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=h264,opus',
+        'video/webm;codecs=opus',
         'video/webm',
-        'video/mp4;codecs=avc1,mp4a.40.2',
-        'video/mp4',
       ];
 
-  const candidates = mobile ? mobileCandidates : desktopCandidates;
   for (const t of candidates) {
     try {
       if (MediaRecorder.isTypeSupported(t)) return t;
@@ -71,21 +66,39 @@ export function getReadyAvStream(): MediaStream | null {
   return null;
 }
 
-/** Escritorio: constraints con fallbacks (incluye video-only como último recurso). */
+const OPTIMAL_AV_CONSTRAINTS: MediaStreamConstraints = {
+  video: {
+    facingMode: 'user',
+    width: { ideal: 1280 },
+    height: { ideal: 720 },
+  },
+  audio: {
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true,
+  },
+};
+
+const STANDARD_AV_CONSTRAINTS: MediaStreamConstraints = {
+  video: { facingMode: 'user' },
+  audio: true,
+};
+
+const GENERIC_AV_CONSTRAINTS: MediaStreamConstraints = {
+  video: true,
+  audio: true,
+};
+
+/** Escritorio: con fallbacks (incluye video-only). */
 function requestDesktopAvStream(): Promise<MediaStream> {
   if (!navigator.mediaDevices?.getUserMedia) {
     return Promise.reject(new Error('NO_MEDIA_DEVICES'));
   }
 
   return navigator.mediaDevices
-    .getUserMedia({
-      video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-    })
-    .catch(() =>
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true })
-    )
-    .catch(() => navigator.mediaDevices.getUserMedia({ video: true, audio: true }))
+    .getUserMedia(OPTIMAL_AV_CONSTRAINTS)
+    .catch(() => navigator.mediaDevices.getUserMedia(STANDARD_AV_CONSTRAINTS))
+    .catch(() => navigator.mediaDevices.getUserMedia(GENERIC_AV_CONSTRAINTS))
     .catch(() =>
       navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
     )
@@ -99,40 +112,41 @@ function requestDesktopAvStream(): Promise<MediaStream> {
     });
 }
 
-/**
- * Móvil: exactamente UNA getUserMedia en este tick (gesto).
- * Prohibido: .catch → otra getUserMedia (Safari ya no tiene gesto → NotAllowed falso).
- */
+/** Móvil: una sola llamada AV. Sin addTrack. Sin fallback mudo. */
 function requestMobileAvStream(): Promise<MediaStream> {
   if (!navigator.mediaDevices?.getUserMedia) {
     return Promise.reject(new Error('NO_MEDIA_DEVICES'));
   }
 
-  // Solo soltar si es video-only. No matar un stream que ya tiene mic.
   const prev = getSharedCameraStream();
   if (prev && isLive(prev, 'video') && !isLive(prev, 'audio')) {
     releaseSharedCameraStreamSync();
   }
 
-  return navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then((stream) => {
-    stream.getTracks().forEach((t) => {
-      t.enabled = true;
+  return navigator.mediaDevices
+    .getUserMedia({ video: true, audio: true })
+    .catch(() =>
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true })
+    )
+    .then((stream) => {
+      stream.getTracks().forEach((t) => {
+        t.enabled = true;
+      });
+      if (!isLive(stream, 'video')) {
+        stream.getTracks().forEach((t) => t.stop());
+        throw new Error('NO_VIDEO');
+      }
+      if (!isLive(stream, 'audio')) {
+        stream.getTracks().forEach((t) => t.stop());
+        throw new Error('NO_AUDIO');
+      }
+      setSharedCameraStream(stream, { stopPrevious: true });
+      return stream;
     });
-    if (!isLive(stream, 'video')) {
-      stream.getTracks().forEach((t) => t.stop());
-      throw new Error('NO_VIDEO');
-    }
-    if (!isLive(stream, 'audio')) {
-      stream.getTracks().forEach((t) => t.stop());
-      throw new Error('NO_AUDIO');
-    }
-    setSharedCameraStream(stream, { stopPrevious: true });
-    return stream;
-  });
 }
 
 /**
- * CRÍTICO: llamar de forma SÍNCRONA en el onClick / touchend (sin setTimeout ni await antes).
+ * CRÍTICO: llamar de forma SÍNCRONA en el onClick (sin await antes).
  */
 export function beginAvCaptureFromUserGesture(): Promise<MediaStream> {
   const existing = getReadyAvStream();
@@ -151,7 +165,7 @@ export function beginAvCaptureFromUserGesture(): Promise<MediaStream> {
     return requestMobileAvStream();
   }
 
-  // ——— ESCRITORIO (sin cambios de intención) ———
+  // ——— ESCRITORIO (igual que antes de la regresión) ———
   const currentPreview = getSharedCameraStream();
   if (currentPreview && isLive(currentPreview, 'video')) {
     if (isLive(currentPreview, 'audio')) {
@@ -167,8 +181,7 @@ export function beginAvCaptureFromUserGesture(): Promise<MediaStream> {
       })
       .catch(() => navigator.mediaDevices.getUserMedia({ audio: true }))
       .then((audioStream) => {
-        const audioTracks = audioStream.getAudioTracks();
-        audioTracks.forEach((t) => {
+        audioStream.getAudioTracks().forEach((t) => {
           t.enabled = true;
           currentPreview.addTrack(t);
         });

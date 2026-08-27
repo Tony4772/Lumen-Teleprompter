@@ -85,15 +85,6 @@ export default function App() {
         // Nunca auto-activar voz al cargar: en móvil el ASR sin gesto del usuario
         // dispara "not-allowed" y muestra el error rojo.
         loaded.speechTracking = false;
-        // Móvil: no restaurar cámara encendida. getUserMedia sin toque = permiso denegado
-        // y luego Iniciar falla con "Permiso bloqueado".
-        if (
-          typeof navigator !== 'undefined' &&
-          (/iPad|iPhone|iPod|Android/i.test(navigator.userAgent) ||
-            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
-        ) {
-          loaded.cameraOverlay = false;
-        }
         return loaded;
       }
     } catch (e) {
@@ -258,9 +249,13 @@ export default function App() {
 
   /** Tras prepare: solo arranca MediaRecorder (el AV ya está abierto). */
   const beginPlayAndRecord = useCallback(async () => {
+    if (!settings.cameraOverlay && mode !== 'camera') {
+      setSettings((prev) => ({ ...prev, cameraOverlay: true }));
+    }
+
     const started = await startRecording(undefined, { videoOnly: false });
     setPlaybackStatus(started ? 'playing' : 'paused');
-  }, [startRecording]);
+  }, [settings.cameraOverlay, mode, startRecording]);
 
   const handleTogglePlay = useCallback(() => {
     if (playbackStatus === 'countdown') {
@@ -277,7 +272,7 @@ export default function App() {
       return;
     }
 
-    // Primero del todo: getUserMedia en el gesto. Nada antes (ni TTS ni setState).
+    // Primero: getUserMedia en el gesto (nada antes).
     const avPromise = beginAvCaptureFromUserGesture();
 
     AudioRehearsalEngine.stop();
@@ -287,7 +282,6 @@ export default function App() {
       const ready = await adoptAvPromise(avPromise);
       if (!ready) {
         setPlaybackStatus('idle');
-        setSettings((prev) => ({ ...prev, cameraOverlay: false }));
         return;
       }
 
@@ -711,24 +705,20 @@ export default function App() {
         onClose={() => setIsMobileMoreOpen(false)}
         isCameraActive={settings.cameraOverlay || mode === 'camera'}
         onToggleCamera={() => {
-          const turningOn = !settings.cameraOverlay;
-          if (turningOn) {
-            // Pedir AV en el mismo toque (gesto), no en un useEffect después.
-            const avPromise = beginAvCaptureFromUserGesture();
-            void adoptAvPromise(avPromise).then((ok) => {
-              if (!ok) return;
-              setSettings((s) => ({
-                ...s,
-                cameraOverlay: true,
-                cameraLayout: 'pip',
-              }));
-              setMobileScreen('prompter');
-              setMode('camera');
-            });
-            return;
+          setSettings((s) => {
+            const turningOn = !s.cameraOverlay;
+            return {
+              ...s,
+              cameraOverlay: turningOn,
+              cameraLayout: turningOn ? 'pip' : s.cameraLayout,
+            };
+          });
+          if (!settings.cameraOverlay) {
+            setMobileScreen('prompter');
+            setMode('camera');
+          } else {
+            setMode('fullscreen');
           }
-          setSettings((s) => ({ ...s, cameraOverlay: false }));
-          setMode('fullscreen');
         }}
         isMirrorActive={mode === 'mirror' || settings.mirrorX}
         onToggleMirror={() => {
@@ -767,8 +757,7 @@ export default function App() {
           ];
           const idx = order.indexOf((settings.cameraLayout as 'pip' | 'side-by-side' | 'background') || 'pip');
           const next = order[(idx + 1) % order.length];
-          // Solo cambia layout; no forzar overlay sin stream (preview negro en móvil).
-          setSettings((s) => ({ ...s, cameraLayout: next }));
+          setSettings((s) => ({ ...s, cameraLayout: next, cameraOverlay: true }));
         }}
       />
 

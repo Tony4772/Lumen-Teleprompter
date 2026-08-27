@@ -142,7 +142,6 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
           <button
             type="button"
             onClick={() => {
-              triggerHaptic(30);
               onTogglePlay();
             }}
             className={`w-14 h-14 rounded-full text-white flex items-center justify-center shadow-editorial active:scale-95 shrink-0 relative ${

@@ -1,12 +1,12 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { RecordedTake } from '../types';
+import { setSharedCameraStream, isAppleTouchDevice } from '../utils/cameraStreamStore';
 import {
   beginAvCaptureFromUserGesture,
   getReadyAvStream,
   isMobileDevice,
   pickRecorderMimeType,
 } from '../utils/recordingCapture';
-import { setSharedCameraStream, isAppleTouchDevice } from '../utils/cameraStreamStore';
 
 export const getSupportedVideoMimeType = (): string => pickRecorderMimeType();
 
@@ -158,19 +158,16 @@ export const useVideoRecorder = ({
         return true;
       }
 
-      const msg = String(err?.message || '');
       setRecorderError(
         err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError'
-          ? 'Toca Iniciar y elige Permitir cámara y micrófono cuando el teléfono lo pida.'
+          ? 'Permiso bloqueado. Toca el candado junto a la URL, permite Cámara y Micrófono y toca Iniciar.'
           : err?.name === 'NotReadableError' || err?.name === 'TrackStartError'
             ? 'La cámara o el micrófono están en uso por otra app. Ciérrala y vuelve a Iniciar.'
             : err?.name === 'OverconstrainedError'
               ? 'Ajustando cámara... Toca Iniciar otra vez.'
               : err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError'
                 ? 'No se detectó cámara o micrófono en este dispositivo.'
-                : msg === 'NO_AUDIO'
-                  ? 'Sin micrófono. Toca Iniciar y elige Permitir cuando el teléfono lo pida.'
-                  : 'No se pudo abrir cámara y micrófono. Toca Iniciar otra vez.'
+                : 'No se pudo abrir cámara y micrófono. Toca Iniciar otra vez.'
       );
       return false;
     }
@@ -206,12 +203,11 @@ export const useVideoRecorder = ({
         return false;
       }
 
-      // Móvil: no grabar nunca sin mic (evitar tomas mudas)
       if (
         isMobileDevice() &&
         !stream.getAudioTracks().some((t) => t.readyState === 'live')
       ) {
-        setRecorderError('Sin micrófono. Toca Iniciar y elige Permitir micrófono.');
+        setRecorderError('Sin micrófono. Toca Iniciar y elige Permitir.');
         setIsRecording(false);
         return false;
       }
@@ -239,19 +235,6 @@ export const useVideoRecorder = ({
           recorder = new MediaRecorder(stream);
         }
         mediaRecorderRef.current = recorder;
-
-        console.info('[lumen-recorder]', {
-          mime: mimeType || recorder.mimeType,
-          audio: stream.getAudioTracks().map((t) => ({
-            id: t.id,
-            enabled: t.enabled,
-            muted: t.muted,
-            state: t.readyState,
-            label: t.label,
-          })),
-          video: stream.getVideoTracks().length,
-          mobile: isMobileDevice(),
-        });
 
         recorder.ondataavailable = (event) => {
           if (event.data && event.data.size > 0) {
@@ -309,6 +292,7 @@ export const useVideoRecorder = ({
         };
 
         recorder.onstop = () => {
+          // En móviles (iOS/Android), esperar a que el encoder vuelque el último fragmento de datos
           const checkAndFinalize = (attempts = 0) => {
             if (recordedChunksRef.current.length > 0 || attempts >= 8) {
               finalizeTake();
@@ -319,8 +303,7 @@ export const useVideoRecorder = ({
           window.setTimeout(() => checkAndFinalize(0), 100);
         };
 
-        // iOS/WebKit: timeslice pierde la pista de audio al juntar chunks en MP4.
-        // Android: timeslice ayuda a no quedarse sin dataavailable.
+        // En iOS Safari, no usar timeslice para evitar pérdida de paquetes de audio en WebKit
         if (isAppleTouchDevice()) {
           recorder.start();
         } else {
