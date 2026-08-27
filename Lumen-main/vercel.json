@@ -3,6 +3,17 @@
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "framework": null,
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(self), microphone=(self)"
+        }
+      ]
+    }
+  ],
   "rewrites": [
     {
       "source": "/((?!api/).*)",

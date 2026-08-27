@@ -158,19 +158,7 @@ export const useVideoRecorder = ({
         return true;
       }
 
-      setRecorderError(
-        err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError'
-          ? 'PERMISSION'
-          : err?.name === 'NotReadableError' || err?.name === 'TrackStartError'
-            ? 'La cámara o el micrófono están en uso por otra app. Ciérrala y vuelve a Iniciar.'
-            : err?.name === 'OverconstrainedError'
-              ? 'Ajustando cámara... Toca Iniciar otra vez.'
-              : err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError'
-                ? 'No se detectó cámara o micrófono en este dispositivo.'
-                : err?.message === 'NO_AUDIO'
-                  ? 'PERMISSION'
-                  : 'No se pudo abrir cámara y micrófono. Toca Iniciar otra vez.'
-      );
+      setRecorderError(null);
       return false;
     }
   }, []);
@@ -202,13 +190,11 @@ export const useVideoRecorder = ({
             })();
 
       if (!stream || !stream.getVideoTracks().some((t) => t.readyState === 'live')) {
-        setRecorderError('Cámara no lista. Toca Iniciar otra vez.');
         setIsRecording(false);
         return false;
       }
 
       if (!stream.getAudioTracks().some((t) => t.readyState === 'live')) {
-        setRecorderError('PERMISSION');
         setIsRecording(false);
         return false;
       }

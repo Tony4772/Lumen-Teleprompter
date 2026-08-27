@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { PrompterSettings, PlaybackStatus, CameraLayout } from '../types';
 import { parseScriptContent, ParsedLine, countLineScriptWords } from '../utils/prompterUtils';
 import { setSharedCameraStream, getSharedCameraStream, CAMERA_STREAM_EVENT } from '../utils/cameraStreamStore';
+import { beginAvCaptureFromUserGesture, getReadyAvStream } from '../utils/recordingCapture';
 import { 
   Eye, 
   ArrowRight, 
@@ -17,7 +18,6 @@ import {
   Grid,
   Columns,
   ArrowLeftRight,
-  VideoOff,
   X,
   Film,
   PictureInPicture2,
@@ -83,7 +83,6 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
   const [parsedLines, setParsedLines] = useState<ParsedLine[]>([]);
   const [activeLineIndex, setActiveLineIndex] = useState(0);
   const [isCameraReady, setIsCameraReady] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
   const [tapFeedback, setTapFeedback] = useState<{ x: number; y: number; type: 'play' | 'pause' | 'restart' } | null>(null);
   const [showCompletedBanner, setShowCompletedBanner] = useState(false);
   const [isSpeedHUDOpen, setIsSpeedHUDOpen] = useState(false);
@@ -148,23 +147,32 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
       }
     };
 
+    const adoptAv = (s: MediaStream) => {
+      if (cancelled) return;
+      if (
+        !s.getAudioTracks().some((t) => t.readyState === 'live') ||
+        !s.getVideoTracks().some((t) => t.readyState === 'live')
+      ) {
+        return;
+      }
+      stream = s;
+      ownsStream = false;
+      setSharedCameraStream(s, { stopPrevious: false });
+      attachToVideo(s);
+    };
+
     const setupCamera = async () => {
       if (!isCameraEnabled) return;
 
-      // Si el grabador ya abrió un stream AV, reutilizarlo
-      const existing = getSharedCameraStream();
-      if (existing && existing.getVideoTracks().some((t) => t.readyState === 'live')) {
-        stream = existing;
-        ownsStream = false;
-        attachToVideo(existing);
-        setCameraError(null);
+      // Solo reutilizar si ya hay cámara Y mic vivos
+      const ready = getReadyAvStream();
+      if (ready) {
+        adoptAv(ready);
         return;
       }
 
       try {
-        setCameraError(null);
-        // Siempre cámara + mic juntos. Sin fallback a audio:false
-        // (ese fallback es lo que hace que el OS solo pida cámara y la toma salga muda).
+        // Misma petición que antes: cámara + mic juntos. Sin audio:false.
         stream = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: true,
@@ -179,9 +187,10 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
           !stream.getAudioTracks().some((t) => t.readyState === 'live') ||
           !stream.getVideoTracks().some((t) => t.readyState === 'live')
         ) {
+          // No guardar video-only: iOS a veces entrega cámara sin pedir mic sin gesto.
           stream.getTracks().forEach((t) => t.stop());
+          stream = null;
           setIsCameraReady(false);
-          setCameraError('No se pudo abrir cámara y micrófono.');
           return;
         }
 
@@ -189,33 +198,32 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
         setSharedCameraStream(stream);
         attachToVideo(stream);
       } catch (err) {
-        console.warn('Webcam not accessible:', err);
+        console.warn('Webcam AV not accessible yet:', err);
         setIsCameraReady(false);
-        const fromRecorder = getSharedCameraStream();
-        if (
-          fromRecorder &&
-          fromRecorder.getVideoTracks().some((t) => t.readyState === 'live')
-        ) {
-          stream = fromRecorder;
-          ownsStream = false;
-          attachToVideo(fromRecorder);
-          setCameraError(null);
-          return;
-        }
-        setCameraError('No se pudo acceder a la cámara.');
+        const readyAfter = getReadyAvStream();
+        if (readyAfter) adoptAv(readyAfter);
       }
     };
 
     setupCamera();
 
+    // Si al cargar no hubo gesto (iPhone no pide mic), el primer toque pide AV sin UI.
+    const onFirstGesture = () => {
+      if (cancelled || !isCameraEnabled) return;
+      if (getReadyAvStream()) return;
+      const av = beginAvCaptureFromUserGesture();
+      void av.then((s) => {
+        if (!cancelled) adoptAv(s);
+      }).catch((err) => {
+        console.warn('First-gesture AV failed:', err);
+      });
+    };
+    window.addEventListener('touchstart', onFirstGesture, { capture: true, once: true });
+    window.addEventListener('pointerdown', onFirstGesture, { capture: true, once: true });
+
     const onExternalStream = () => {
-      const s = getSharedCameraStream();
-      if (s && s.getVideoTracks().some((t) => t.readyState === 'live')) {
-        stream = s;
-        ownsStream = false;
-        attachToVideo(s);
-        setCameraError(null);
-      }
+      const s = getReadyAvStream();
+      if (s) adoptAv(s);
     };
     window.addEventListener(CAMERA_STREAM_EVENT, onExternalStream);
 
@@ -232,6 +240,8 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
       cancelled = true;
       clearInterval(syncInterval);
       window.removeEventListener(CAMERA_STREAM_EVENT, onExternalStream);
+      window.removeEventListener('touchstart', onFirstGesture, true);
+      window.removeEventListener('pointerdown', onFirstGesture, true);
       // Solo detener tracks si este efecto los abrió (no los del grabador)
       if (ownsStream && stream) {
         stream.getTracks().forEach((t) => t.stop());
@@ -646,13 +656,6 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
                 <span className="text-[7px] uppercase font-bold">Cerrar</span>
               </button>
             </div>
-          </div>
-        )}
-
-        {cameraError && (
-          <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-4 text-center text-white z-30">
-            <VideoOff className="w-8 h-8 text-amber-400 mb-2" />
-            <p className="text-[10px] font-mono text-[#AAA]">{cameraError}</p>
           </div>
         )}
       </div>

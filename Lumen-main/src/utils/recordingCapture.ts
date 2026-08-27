@@ -1,13 +1,17 @@
 /**
- * Captura AV universal (móvil y escritorio).
- * - Si ya hay video+audio vivos → reutilizar (no apagar preview).
- * - Si falta mic → getUserMedia({video,audio}) en el gesto; solo entonces reemplazar el stream.
+ * Captura AV: un solo getUserMedia({video,audio}).
+ * Nunca video-only, nunca addTrack (en iPhone deja tomas mudas).
+ * Si ya hay video+audio vivos → reutilizar.
+ * Si falta mic → soltar preview y pedir ambos en el mismo gesto.
  */
 import {
   getSharedCameraStream,
   setSharedCameraStream,
+  releaseSharedCameraStreamSync,
   isAppleTouchDevice,
 } from './cameraStreamStore';
+
+let inflightAv: Promise<MediaStream> | null = null;
 
 export function isMobileDevice(): boolean {
   if (typeof navigator === 'undefined') return false;
@@ -59,9 +63,7 @@ export function getReadyAvStream(): MediaStream | null {
   return null;
 }
 
-/**
- * Pedir video+audio. No detener el preview hasta tener el nuevo stream OK.
- */
+/** Pedir video+audio. Sustituye el stream compartido solo si ambos están vivos. */
 function requestAvStream(): Promise<MediaStream> {
   if (!navigator.mediaDevices?.getUserMedia) {
     return Promise.reject(new Error('NO_MEDIA_DEVICES'));
@@ -70,7 +72,10 @@ function requestAvStream(): Promise<MediaStream> {
   return navigator.mediaDevices
     .getUserMedia({ video: true, audio: true })
     .catch(() =>
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true })
+      navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' },
+        audio: true,
+      })
     )
     .then((stream) => {
       stream.getTracks().forEach((t) => {
@@ -84,52 +89,36 @@ function requestAvStream(): Promise<MediaStream> {
         stream.getTracks().forEach((t) => t.stop());
         throw new Error('NO_AUDIO');
       }
-      // Solo aquí se sustituye el preview (video-only u otro).
       setSharedCameraStream(stream, { stopPrevious: true });
       return stream;
     });
 }
 
 /**
- * Llamar SÍNCRONO en el onClick de Iniciar.
- * Si ya hay cámara+mic, reutiliza (no vuelve a pedir cámara).
- * Si falta mic, pide solo audio y arma stream AV sin reabrir video.
+ * Llamar SÍNCRONO dentro de un gesto (touch/click).
+ * Dispara getUserMedia en este mismo tick para que iOS muestre mic.
  */
 export function beginAvCaptureFromUserGesture(): Promise<MediaStream> {
-  const shared = getSharedCameraStream();
-
-  if (shared && isLive(shared, 'video') && isLive(shared, 'audio')) {
-    shared.getTracks().forEach((t) => {
+  const ready = getReadyAvStream();
+  if (ready) {
+    ready.getTracks().forEach((t) => {
       t.enabled = true;
     });
-    return Promise.resolve(shared);
+    return Promise.resolve(ready);
   }
 
-  if (!navigator.mediaDevices?.getUserMedia) {
-    return Promise.reject(new Error('NO_MEDIA_DEVICES'));
+  if (inflightAv) return inflightAv;
+
+  // Preview sin mic (o muerto): soltar y pedir cámara+mic juntos.
+  // addTrack deja grabaciones mudas en WebKit.
+  if (getSharedCameraStream()) {
+    releaseSharedCameraStreamSync();
   }
 
-  // Ya hay cámara, falta mic → pedir SOLO mic (no volver a pedir cámara).
-  if (shared && isLive(shared, 'video') && !isLive(shared, 'audio')) {
-    return navigator.mediaDevices
-      .getUserMedia({ audio: true })
-      .then((audioStream) => {
-        const audioTracks = audioStream.getAudioTracks();
-        if (!audioTracks.some((t) => t.readyState === 'live')) {
-          audioStream.getTracks().forEach((t) => t.stop());
-          throw new Error('NO_AUDIO');
-        }
-        audioTracks.forEach((t) => {
-          t.enabled = true;
-          shared.addTrack(t);
-        });
-        setSharedCameraStream(shared, { stopPrevious: false });
-        return shared;
-      });
-  }
-
-  // No hay preview aún → pedir ambos.
-  return requestAvStream();
+  inflightAv = requestAvStream().finally(() => {
+    inflightAv = null;
+  });
+  return inflightAv;
 }
 
 /** @deprecated */
