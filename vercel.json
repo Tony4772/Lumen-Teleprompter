@@ -1,0 +1,12 @@
+{
+  "buildCommand": "cd \"Lumen-main\" && npm run build:web",
+  "outputDirectory": "Lumen-main/dist",
+  "installCommand": "npm install && cd \"Lumen-main\" && npm install",
+  "framework": null,
+  "rewrites": [
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
+  ]
+}

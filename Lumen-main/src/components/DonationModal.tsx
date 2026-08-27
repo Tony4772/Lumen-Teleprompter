@@ -163,11 +163,20 @@ export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose })
     try {
       setIsLoading(true);
 
-      // Verify backend is reachable
+      // Verify backend API is reachable (local Express or Vercel /api)
       const healthRes = await fetch('/api/health');
+      let healthData: any = null;
+      try {
+        healthData = await readApiJson(healthRes);
+      } catch {
+        throw new Error(
+          'La API de donaciones no está activa en este sitio. En Vercel: Settings → General → Root Directory = "Lumen-main", agrega CULQI_PUBLIC_KEY y CULQI_SECRET_KEY, y haz Redeploy. Luego abre tu-dominio/api/health (debe verse JSON).'
+        );
+      }
       if (!healthRes.ok) {
         throw new Error(
-          'El servidor de Lumen no responde. Ejecuta npm run dev dentro de Lumen-main.'
+          healthData?.error ||
+            `API health falló (${healthRes.status}). Revisa el deploy en Vercel.`
         );
       }
 

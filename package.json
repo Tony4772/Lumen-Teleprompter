@@ -1,0 +1,8 @@
+{
+  "name": "lumen-teleprompter-root",
+  "private": true,
+  "dependencies": {
+    "@google/genai": "^2.4.0",
+    "@vercel/node": "^5.3.6"
+  }
+}
