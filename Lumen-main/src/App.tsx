@@ -134,6 +134,28 @@ export default function App() {
   const wordCount = countWords(activeScript?.content || '');
   const totalEstimatedSeconds = estimateDurationSeconds(wordCount, settings.wpm);
 
+  // Video Recorder Hook
+  const {
+    isRecording,
+    recordingSeconds,
+    latestTake,
+    takesHistory,
+    recorderError,
+    clearRecorderError,
+    adoptAvPromise,
+    prepareMicForRecording,
+    startRecording,
+    stopRecording,
+    deleteTakeFromHistory,
+    clearAllTakes,
+  } = useVideoRecorder({
+    scriptTitle: activeScript?.title,
+    scriptId: activeScript?.id,
+    onRecordingFinished: () => {
+      setIsRecordingModalOpen(true);
+    },
+  });
+
   // Speech Recognition Follower integration
   const [voiceProgressRatio, setVoiceProgressRatio] = useState<number>(0);
   const [voiceWordIndex, setVoiceWordIndex] = useState<number>(0);
@@ -197,28 +219,6 @@ export default function App() {
       // No forzar voiceWordIndex/progress a 0 aquí: evita salto visual al top
     }
   }, [settings.speechTracking]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Video Recorder Hook
-  const {
-    isRecording,
-    recordingSeconds,
-    latestTake,
-    takesHistory,
-    recorderError,
-    clearRecorderError,
-    adoptAvPromise,
-    prepareMicForRecording,
-    startRecording,
-    stopRecording,
-    deleteTakeFromHistory,
-    clearAllTakes,
-  } = useVideoRecorder({
-    scriptTitle: activeScript?.title,
-    scriptId: activeScript?.id,
-    onRecordingFinished: () => {
-      setIsRecordingModalOpen(true);
-    },
-  });
 
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isRecordingRef = useRef(isRecording);
