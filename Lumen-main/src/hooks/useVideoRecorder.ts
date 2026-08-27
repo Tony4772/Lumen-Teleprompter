@@ -3,10 +3,12 @@ import { RecordedTake } from '../types';
 import { setSharedCameraStream, getSharedCameraStream, isAppleTouchDevice } from '../utils/cameraStreamStore';
 import {
   beginAvCaptureFromUserGesture,
+  createRecorderSurface,
   getReadyAvStream,
   isMobileDevice,
   pickRecorderMimeType,
   resumeRecordingAudioContext,
+  type RecorderSurface,
 } from '../utils/recordingCapture';
 
 export const getSupportedVideoMimeType = (): string => pickRecorderMimeType();
@@ -118,6 +120,7 @@ export const useVideoRecorder = ({
   const [recorderError, setRecorderError] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recorderSurfaceRef = useRef<RecorderSurface | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingStartTimeRef = useRef(0);
@@ -180,7 +183,7 @@ export const useVideoRecorder = ({
         return false;
       }
 
-      const stream =
+      const cameraStream =
         sessionStreamRef.current &&
         sessionStreamRef.current.getVideoTracks().some((t) => t.readyState === 'live')
           ? sessionStreamRef.current
@@ -190,19 +193,31 @@ export const useVideoRecorder = ({
               return s && s.getVideoTracks().some((t) => t.readyState === 'live') ? s : null;
             })();
 
-      if (!stream || !stream.getVideoTracks().some((t) => t.readyState === 'live')) {
+      if (!cameraStream || !cameraStream.getVideoTracks().some((t) => t.readyState === 'live')) {
         setIsRecording(false);
         return false;
       }
 
-      sessionStreamRef.current = stream;
-      stream.getTracks().forEach((t) => {
+      sessionStreamRef.current = cameraStream;
+      cameraStream.getTracks().forEach((t) => {
         t.enabled = true;
       });
       resumeRecordingAudioContext();
 
       try {
-        // En Apple: sin mimeType forzado si hace falta — deja que WebKit elija H264+AAC.
+        if (recorderSurfaceRef.current) {
+          try {
+            recorderSurfaceRef.current.stop();
+          } catch {
+            // ignore
+          }
+          recorderSurfaceRef.current = null;
+        }
+
+        const surface = await createRecorderSurface(cameraStream);
+        recorderSurfaceRef.current = surface;
+        const stream = surface.stream;
+
         const mimeType = pickRecorderMimeType();
         let recorder: MediaRecorder;
         const apple = isAppleTouchDevice();
@@ -221,7 +236,6 @@ export const useVideoRecorder = ({
           recorder = new MediaRecorder(stream);
         }
 
-        // Si el tipo elegido no trae audio y hay pista de mic, reintentar con video/mp4 simple
         if (
           apple &&
           stream.getAudioTracks().some((t) => t.readyState === 'live') &&
@@ -232,7 +246,7 @@ export const useVideoRecorder = ({
           try {
             recorder = new MediaRecorder(stream, { mimeType: 'video/mp4' });
           } catch {
-            // keep previous recorder
+            // keep previous
           }
         }
 
@@ -246,13 +260,18 @@ export const useVideoRecorder = ({
 
         recorder.onerror = (e) => {
           console.error('MediaRecorder error:', e);
-          setRecorderError('Error durante la grabación. Toca Iniciar otra vez.');
         };
 
         const finalizeTake = () => {
+          try {
+            recorderSurfaceRef.current?.stop();
+          } catch {
+            // ignore
+          }
+          recorderSurfaceRef.current = null;
+
           const chunks = recordedChunksRef.current;
           if (!chunks.length) {
-            setRecorderError('No quedó video grabado. Graba unos segundos y pausa.');
             setIsRecording(false);
             return;
           }
@@ -261,7 +280,6 @@ export const useVideoRecorder = ({
           const finalMime = rawMime.split(';')[0];
           const blob = new Blob(chunks, { type: finalMime });
           if (blob.size < 50) {
-            setRecorderError('La toma quedó vacía. Graba un poco más y pausa.');
             setIsRecording(false);
             return;
           }
@@ -294,7 +312,6 @@ export const useVideoRecorder = ({
         };
 
         recorder.onstop = () => {
-          // En móviles (iOS/Android), esperar a que el encoder vuelque el último fragmento de datos
           const checkAndFinalize = (attempts = 0) => {
             if (recordedChunksRef.current.length > 0 || attempts >= 8) {
               finalizeTake();
@@ -305,8 +322,7 @@ export const useVideoRecorder = ({
           window.setTimeout(() => checkAndFinalize(0), 100);
         };
 
-        // En iOS Safari, no usar timeslice para evitar pérdida de paquetes de audio en WebKit
-        if (isAppleTouchDevice()) {
+        if (apple) {
           recorder.start();
         } else {
           try {
@@ -327,7 +343,12 @@ export const useVideoRecorder = ({
         return true;
       } catch (err) {
         console.error('startRecording:', err);
-        setRecorderError('No se pudo empezar a grabar. Toca Iniciar otra vez.');
+        try {
+          recorderSurfaceRef.current?.stop();
+        } catch {
+          // ignore
+        }
+        recorderSurfaceRef.current = null;
         setIsRecording(false);
         return false;
       }
@@ -348,6 +369,13 @@ export const useVideoRecorder = ({
       } catch (e) {
         console.warn('stopRecording:', e);
       }
+    } else {
+      try {
+        recorderSurfaceRef.current?.stop();
+      } catch {
+        // ignore
+      }
+      recorderSurfaceRef.current = null;
     }
     setIsRecording(false);
   }, []);
