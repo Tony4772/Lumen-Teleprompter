@@ -288,13 +288,9 @@ export default function App() {
     }
 
     const runStartFlow = async () => {
-      // Móvil (iOS/Android): video+audio en el gesto del toque (antes del countdown)
+      // Móvil: preparar mic/AV en el gesto; nunca abortar por cartel de permisos
       if (isMobileRecordingDevice()) {
-        const ok = await prepareMicForRecording();
-        if (!ok) {
-          setPlaybackStatus('idle');
-          return;
-        }
+        await prepareMicForRecording();
       }
 
       if (!settings.cameraOverlay && mode !== 'camera') {

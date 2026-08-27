@@ -187,3 +187,41 @@ export function getLiveAvStream(): MediaStream | null {
   }
   return null;
 }
+
+export function getLiveVideoStream(): MediaStream | null {
+  const s = getSharedCameraStream();
+  if (s && s.getVideoTracks().some((t) => t.readyState === 'live')) {
+    return s;
+  }
+  return null;
+}
+
+/** Solo micrófono (Chrome/Android): no toca la cámara del preview. */
+export async function acquireMicOnly(): Promise<MediaStreamTrack[]> {
+  const mic = await navigator.mediaDevices.getUserMedia({
+    audio: true,
+    video: false,
+  });
+  const tracks = mic.getAudioTracks();
+  tracks.forEach((t) => {
+    t.enabled = true;
+  });
+  return tracks;
+}
+
+/** Une video existente + tracks de audio en un MediaStream para MediaRecorder. */
+export function combineVideoAndAudio(
+  videoStream: MediaStream,
+  audioTracks: MediaStreamTrack[]
+): MediaStream {
+  const videoTrack = videoStream.getVideoTracks().find((t) => t.readyState === 'live');
+  const tracks: MediaStreamTrack[] = [];
+  if (videoTrack) tracks.push(videoTrack);
+  audioTracks
+    .filter((t) => t.readyState === 'live')
+    .forEach((t) => {
+      t.enabled = true;
+      tracks.push(t);
+    });
+  return new MediaStream(tracks);
+}
