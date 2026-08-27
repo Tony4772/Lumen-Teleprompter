@@ -247,15 +247,14 @@ export default function App() {
 
   /** Enciende cámara (si hace falta), graba y pone el texto en marcha. */
   const beginPlayAndRecord = useCallback(async () => {
-    // Móvil: el AV ya se preparó en el toque; no abrir preview video-only encima
-    if (!isMobileRecordingDevice()) {
-      const needsCamera = !settings.cameraOverlay && mode !== 'camera';
-      if (needsCamera) {
-        setSettings((prev) => ({ ...prev, cameraOverlay: true }));
-        await new Promise((r) => setTimeout(r, 800));
-      }
-    } else if (!settings.cameraOverlay && mode !== 'camera') {
+    if (!settings.cameraOverlay && mode !== 'camera') {
       setSettings((prev) => ({ ...prev, cameraOverlay: true }));
+    }
+    // Dar tiempo a que el preview abra la cámara en Chrome
+    if (isMobileRecordingDevice()) {
+      await new Promise((r) => setTimeout(r, 400));
+    } else if (!settings.cameraOverlay && mode !== 'camera') {
+      await new Promise((r) => setTimeout(r, 800));
     }
 
     const started = await startRecording(undefined, {

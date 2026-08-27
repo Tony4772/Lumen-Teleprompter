@@ -16,6 +16,24 @@ import {
 
 export const getSupportedVideoMimeType = (): string => pickRecorderMimeType();
 
+function streamHasLiveVideo(stream: MediaStream | null | undefined): stream is MediaStream {
+  return !!stream && stream.getVideoTracks().some((t) => t.readyState === 'live');
+}
+
+function streamHasLiveAudio(stream: MediaStream | null | undefined): boolean {
+  return !!stream && stream.getAudioTracks().some((t) => t.readyState === 'live');
+}
+
+async function waitForLiveVideo(timeoutMs = 2500): Promise<MediaStream | null> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const s = getLiveVideoStream();
+    if (streamHasLiveVideo(s)) return s;
+    await new Promise((r) => setTimeout(r, 120));
+  }
+  return getLiveVideoStream();
+}
+
 function buildVideoFile(blob: Blob, customFilename?: string): File {
   const rawType = (blob.type || '').toLowerCase();
   const isMp4 = rawType.includes('mp4');
@@ -180,13 +198,17 @@ export const useVideoRecorder = ({
     setRecorderError(null);
 
     const existingAv = preparedCameraRef.current || getLiveAvStream();
-    if (existingAv) {
-      existingAv.getAudioTracks().forEach((t) => {
+    if (streamHasLiveVideo(existingAv) && streamHasLiveAudio(existingAv)) {
+      existingAv!.getAudioTracks().forEach((t) => {
         t.enabled = true;
       });
-      preparedCameraRef.current = existingAv;
-      setSharedCameraStream(existingAv, { stopPrevious: false });
+      preparedCameraRef.current = existingAv!;
+      setSharedCameraStream(existingAv!, { stopPrevious: false });
       return true;
+    }
+    // Stream muerto: descartar
+    if (preparedCameraRef.current && !streamHasLiveVideo(preparedCameraRef.current)) {
+      preparedCameraRef.current = null;
     }
 
     // Chrome/Android: no liberar cámara; solo mic en el gesto
@@ -208,7 +230,6 @@ export const useVideoRecorder = ({
     } catch (err: any) {
       console.warn('av prepare (webkit):', err);
       preparedCameraRef.current = null;
-      // No cartel aquí: startRecording intentará de nuevo / video
       return true;
     }
   }, []);
@@ -229,121 +250,101 @@ export const useVideoRecorder = ({
         recorderHandleRef.current?.cleanup();
         recorderHandleRef.current = null;
 
-        let recordBase: MediaStream;
+        // Esperar a que el preview tenga cámara (Chrome enciende overlay y tarda un poco)
+        let videoStream =
+          (streamHasLiveVideo(preparedCameraRef.current) && preparedCameraRef.current) ||
+          getLiveAvStream() ||
+          getLiveVideoStream() ||
+          (await waitForLiveVideo(2800));
 
-        if (videoOnly) {
-          const videoOnlyStream =
-            getLiveVideoStream() ||
-            (await navigator.mediaDevices.getUserMedia({
-              video: { facingMode: 'user' },
-              audio: false,
-            }));
-          setSharedCameraStream(videoOnlyStream, { stopPrevious: false });
-          recorderHandleRef.current = {
-            recordStream: videoOnlyStream,
-            cameraStream: videoOnlyStream,
-            cleanup: () => {},
-          };
-          activeStreamRef.current = videoOnlyStream;
-        } else if (isWebKitMediaRecorder()) {
-          let cameraStream =
-            preparedCameraRef.current || getLiveAvStream() || null;
-          if (!cameraStream) {
-            try {
-              cameraStream = await acquireAvStream();
-              preparedCameraRef.current = cameraStream;
-            } catch (err: any) {
-              // Fallback: cámara del preview + mic aparte
-              const video = getLiveVideoStream();
-              if (!video) throw err;
-              let micTracks = preparedMicTracksRef.current.filter(
-                (t) => t.readyState === 'live'
-              );
-              if (!micTracks.length) {
-                try {
-                  micTracks = await acquireMicOnly();
-                } catch {
-                  micTracks = [];
-                }
-              }
-              recordBase = combineVideoAndAudio(video, micTracks);
-              preparedMicTracksRef.current = [];
-              const handleFallback = await buildRecorderStream(
-                // build expects audio on stream — for webkit wrap; if no audio, returns as-is
-                recordBase
-              );
-              // If combine created new stream without going through camera share AV, skip wrap issues
-              recorderHandleRef.current = handleFallback;
-              activeStreamRef.current = handleFallback.recordStream;
-              // jump to recorder create below via flag
-              cameraStream = recordBase;
+        if (!streamHasLiveVideo(videoStream)) {
+          try {
+            videoStream = videoOnly
+              ? await navigator.mediaDevices.getUserMedia({
+                  video: { facingMode: 'user' },
+                  audio: false,
+                })
+              : isWebKitMediaRecorder()
+                ? await acquireAvStream()
+                : await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user' },
+                    audio: false,
+                  });
+            setSharedCameraStream(videoStream, { stopPrevious: true });
+            if (streamHasLiveAudio(videoStream)) {
+              preparedCameraRef.current = videoStream;
             }
+          } catch (err) {
+            console.error('camera open failed:', err);
+            setRecorderError('No se abrió la cámara. Toca Iniciar otra vez.');
+            setIsRecording(false);
+            return false;
           }
-          if (!recorderHandleRef.current) {
-            cameraStream!.getAudioTracks().forEach((t) => {
-              t.enabled = true;
-            });
-            const handle = await buildRecorderStream(cameraStream!);
-            recorderHandleRef.current = handle;
-            activeStreamRef.current = handle.recordStream;
-          }
-        } else {
-          // Chromium (Android Chrome, desktop): preview video + mic
-          const video =
-            getLiveVideoStream() ||
-            (await navigator.mediaDevices.getUserMedia({
-              video: { facingMode: 'user' },
-              audio: false,
-            }));
-          if (!getLiveVideoStream()) {
-            setSharedCameraStream(video, { stopPrevious: true });
-          }
-
-          let micTracks = preparedMicTracksRef.current.filter(
-            (t) => t.readyState === 'live'
-          );
-          preparedMicTracksRef.current = [];
-          if (!micTracks.length) {
-            try {
-              micTracks = await acquireMicOnly();
-            } catch {
-              micTracks = [];
-            }
-          }
-
-          // Si el shared ya trae audio, usarlo
-          if (!micTracks.length && video.getAudioTracks().length) {
-            recordBase = video;
-          } else {
-            recordBase = combineVideoAndAudio(video, micTracks);
-          }
-
-          recorderHandleRef.current = {
-            recordStream: recordBase,
-            cameraStream: video,
-            cleanup: () => {
-              micTracks.forEach((t) => {
-                try {
-                  t.stop();
-                } catch {
-                  // ignore
-                }
-              });
-            },
-          };
-          activeStreamRef.current = recordBase;
         }
 
-        if (!recorderHandleRef.current) {
-          setRecorderError('No se pudo iniciar la grabación.');
+        if (!streamHasLiveVideo(videoStream)) {
+          setRecorderError('No se abrió la cámara. Toca Iniciar otra vez.');
           setIsRecording(false);
           return false;
         }
 
+        let recordStream: MediaStream = videoStream;
+
+        if (!videoOnly) {
+          if (streamHasLiveAudio(videoStream)) {
+            videoStream.getAudioTracks().forEach((t) => {
+              t.enabled = true;
+            });
+            recordStream = videoStream;
+          } else {
+            // Mic preparado en el gesto, o pedirlo ahora
+            let micTracks = preparedMicTracksRef.current.filter(
+              (t) => t.readyState === 'live'
+            );
+            preparedMicTracksRef.current = [];
+            if (!micTracks.length) {
+              try {
+                micTracks = await acquireMicOnly();
+              } catch (err) {
+                console.warn('mic unavailable, recording video only:', err);
+                micTracks = [];
+              }
+            }
+            recordStream = micTracks.length
+              ? combineVideoAndAudio(videoStream, micTracks)
+              : videoStream;
+
+            recorderHandleRef.current = {
+              recordStream,
+              cameraStream: videoStream,
+              cleanup: () => {
+                micTracks.forEach((t) => {
+                  try {
+                    t.stop();
+                  } catch {
+                    // ignore
+                  }
+                });
+              },
+            };
+          }
+        }
+
+        if (!recorderHandleRef.current) {
+          const handle = await buildRecorderStream(recordStream);
+          recorderHandleRef.current = handle;
+        }
+
+        activeStreamRef.current = recorderHandleRef.current.recordStream;
         const handle = recorderHandleRef.current;
 
+        if (!handle.recordStream.getVideoTracks().some((t) => t.readyState === 'live')) {
+          setRecorderError('La cámara se cortó. Toca Iniciar otra vez.');
+          setIsRecording(false);
+          return false;
+        }
+
         const mimeType = pickRecorderMimeType();
-        // Safari: sin bitrates forzados (pueden dejar el archivo en 0 bytes)
         const recorderOptions: MediaRecorderOptions = mimeType ? { mimeType } : {};
 
         let recorder: MediaRecorder;
@@ -351,9 +352,12 @@ export const useVideoRecorder = ({
           recorder = new MediaRecorder(handle.recordStream, recorderOptions);
         } catch {
           try {
-            recorder = new MediaRecorder(handle.recordStream, { mimeType: 'video/mp4' });
-          } catch {
             recorder = new MediaRecorder(handle.recordStream);
+          } catch (e) {
+            console.error('MediaRecorder create failed', e);
+            setRecorderError('Este navegador no pudo crear el grabador.');
+            setIsRecording(false);
+            return false;
           }
         }
         mediaRecorderRef.current = recorder;
@@ -397,7 +401,7 @@ export const useVideoRecorder = ({
           ).split(';')[0];
           const blob = new Blob(chunks, { type: finalMimeType });
           if (blob.size < 1000) {
-            setRecorderError('La grabación quedó vacía. Intenta de nuevo unos segundos más.');
+            setRecorderError('La grabación quedó vacía. Intenta unos segundos más.');
             setIsRecording(false);
             return;
           }
@@ -430,7 +434,6 @@ export const useVideoRecorder = ({
           onFinishedRef.current?.(newTake);
         };
 
-        // Safari a veces dispara onstop antes del último dataavailable
         recorder.onstop = () => {
           window.setTimeout(finalizeTake, 150);
         };
@@ -462,7 +465,8 @@ export const useVideoRecorder = ({
         console.error('Error starting video recording:', err);
         recorderHandleRef.current?.cleanup();
         recorderHandleRef.current = null;
-        setRecorderError('No se pudo grabar. Toca Iniciar otra vez.');
+        // Mensaje corto; no insistir en permisos si ya los dio
+        setRecorderError('No se pudo grabar. Espera la cámara e Inicia otra vez.');
         setIsRecording(false);
         return false;
       }
