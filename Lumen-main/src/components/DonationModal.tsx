@@ -51,6 +51,38 @@ async function readApiJson(res: Response): Promise<any> {
   }
 }
 
+let culqiScriptPromise: Promise<void> | null = null;
+
+function ensureCulqiScript(): Promise<void> {
+  if (window.Culqi) return Promise.resolve();
+  if (culqiScriptPromise) return culqiScriptPromise;
+
+  culqiScriptPromise = new Promise((resolve, reject) => {
+    const existing = document.querySelector(
+      'script[src="https://checkout.culqi.com/js/v4"]'
+    ) as HTMLScriptElement | null;
+    if (existing) {
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener(
+        'error',
+        () => reject(new Error('No se pudo cargar el script de Culqi.')),
+        { once: true }
+      );
+      if (window.Culqi) resolve();
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://checkout.culqi.com/js/v4';
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('No se pudo cargar el script de Culqi.'));
+    document.body.appendChild(script);
+  });
+
+  return culqiScriptPromise;
+}
+
 export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose }) => {
   const [amount, setAmount] = useState<number>(10);
   const [customAmount, setCustomAmount] = useState<string>('10');
@@ -60,6 +92,8 @@ export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose })
   const [donorPhone, setDonorPhone] = useState<string>('');
   const [donorMessage, setDonorMessage] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [loadingLabel, setLoadingLabel] = useState<string>('Conectando con Culqi...');
+  const [cachedPublicKey, setCachedPublicKey] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successData, setSuccessData] = useState<{
     id: string;
@@ -67,12 +101,28 @@ export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose })
     receiptUrl?: string;
   } | null>(null);
 
-  // Initialize Culqi Script & Listener
+  // Prefetch Culqi script + public key while the user fills the form
   useEffect(() => {
     if (!isOpen) {
       setErrorMessage(null);
       return;
     }
+
+    void ensureCulqiScript().catch(() => {
+      /* se reintenta al pagar */
+    });
+
+    void (async () => {
+      try {
+        const configRes = await fetch('/api/culqi/config');
+        const config = await readApiJson(configRes);
+        if (configRes.ok && config.publicKey) {
+          setCachedPublicKey(config.publicKey as string);
+        }
+      } catch {
+        /* se reintenta al pagar */
+      }
+    })();
 
     // Set up global Culqi callback
     window.culqi = async function () {
@@ -162,44 +212,26 @@ export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose })
 
     try {
       setIsLoading(true);
+      setLoadingLabel('Preparando pago...');
 
-      // Verify backend API is reachable (local Express or Vercel /api)
-      const healthRes = await fetch('/api/health');
-      let healthData: any = null;
-      try {
-        healthData = await readApiJson(healthRes);
-      } catch {
-        throw new Error(
-          'La API de donaciones falló (respuesta no JSON). Abre /api/health en otra pestaña: debe verse {"status":"ok"...}. Si da error, en Vercel revisa el deploy y las variables CULQI_PUBLIC_KEY / CULQI_SECRET_KEY.'
-        );
-      }
-      if (!healthRes.ok) {
-        throw new Error(
-          healthData?.error ||
-            `API health falló (${healthRes.status}). Revisa el deploy en Vercel.`
-        );
-      }
-
-      const configRes = await fetch('/api/culqi/config');
-      const config = await readApiJson(configRes);
-      if (!configRes.ok || !config.publicKey) {
-        throw new Error(
-          config.error ||
-            'Culqi no está configurado. Agrega CULQI_PUBLIC_KEY y CULQI_SECRET_KEY en el archivo .env'
-        );
-      }
-      const publicKey = config.publicKey as string;
-
-      if (!window.Culqi) {
-        const script = document.createElement('script');
-        script.src = 'https://checkout.culqi.com/js/v4';
-        script.async = true;
-        document.body.appendChild(script);
-        await new Promise((resolve, reject) => {
-          script.onload = () => resolve(null);
-          script.onerror = () => reject(new Error('No se pudo cargar el script de Culqi.'));
-        });
-      }
+      // Script + config en paralelo (si no se precargaron al abrir el modal)
+      setLoadingLabel('Cargando Culqi...');
+      const [, publicKey] = await Promise.all([
+        ensureCulqiScript(),
+        (async () => {
+          if (cachedPublicKey) return cachedPublicKey;
+          const configRes = await fetch('/api/culqi/config');
+          const config = await readApiJson(configRes);
+          if (!configRes.ok || !config.publicKey) {
+            throw new Error(
+              config.error ||
+                'Culqi no está configurado. Revisa CULQI_PUBLIC_KEY en Vercel.'
+            );
+          }
+          setCachedPublicKey(config.publicKey as string);
+          return config.publicKey as string;
+        })(),
+      ]);
 
       if (!window.Culqi) {
         throw new Error('No se pudo inicializar la pasarela de pagos Culqi.');
@@ -208,6 +240,8 @@ export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose })
       const Culqi = window.Culqi;
       Culqi.publicKey = publicKey;
 
+      // create-order habla con Culqi (Yape); es lo que más tarda
+      setLoadingLabel('Creando orden segura...');
       const orderRes = await fetch('/api/culqi/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -257,16 +291,18 @@ export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose })
 
       if (!hasOrder && orderData.error) {
         setErrorMessage(
-          `${orderData.error} Se abrirá Culqi solo con tarjeta. Para Yape, revisa tus claves Culqi en .env`
+          `${orderData.error} Se abrirá Culqi solo con tarjeta. Para Yape, revisa tus claves Culqi en Vercel.`
         );
       }
 
+      setLoadingLabel('Abriendo formulario...');
       Culqi.open();
     } catch (err: any) {
       console.error('Error starting Culqi checkout:', err);
       setErrorMessage(err.message || 'Hubo un error al abrir el formulario de pago.');
     } finally {
       setIsLoading(false);
+      setLoadingLabel('Conectando con Culqi...');
     }
   };
 
@@ -511,7 +547,7 @@ export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose })
                   {isLoading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Conectando con Culqi...</span>
+                      <span>{loadingLabel}</span>
                     </>
                   ) : (
                     <>
