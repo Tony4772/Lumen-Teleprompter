@@ -1,0 +1,126 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-serif: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
+    --font-cormorant: 'Cormorant Garamond', Georgia, serif;
+    --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: #F9F7F2;
+    color: #121212;
+  }
+}
+
+.font-serif {
+  font-family: var(--font-serif) !important;
+}
+
+.font-cormorant {
+  font-family: var(--font-cormorant) !important;
+}
+
+.font-mono {
+  font-family: var(--font-mono) !important;
+}
+
+.font-sans {
+  font-family: var(--font-sans) !important;
+}
+
+/* Editorial dot matrix texture */
+.editorial-dot-pattern {
+  background-image: radial-gradient(#121212 0.75px, transparent 0.75px);
+  background-size: 14px 14px;
+}
+
+.editorial-dot-pattern-light {
+  background-image: radial-gradient(#121212 0.4px, transparent 0.4px);
+  background-size: 12px 12px;
+}
+
+/* Custom scrollbars and hidden scrollbars for prompter mode */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Custom thin styled scrollbar matching editorial aesthetic */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #F9F7F2;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #D6D2C4;
+  border-radius: 2px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #121212;
+}
+
+/* Mirror effects for beam-splitter prompter glass */
+.mirror-x {
+  transform: scaleX(-1);
+}
+
+.mirror-y {
+  transform: scaleY(-1);
+}
+
+.mirror-both {
+  transform: scale(-1, -1);
+}
+
+/* Editorial subtle shadows */
+.shadow-editorial {
+  box-shadow: 0 4px 20px -2px rgba(18, 18, 18, 0.06), 0 2px 6px -1px rgba(18, 18, 18, 0.04);
+}
+
+.shadow-editorial-lg {
+  box-shadow: 0 12px 36px -4px rgba(18, 18, 18, 0.12), 0 4px 12px -2px rgba(18, 18, 18, 0.08);
+}
+
+/* Mobile & Touch Optimizations */
+html, body {
+  height: 100%;
+  height: 100dvh;
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.touch-manipulation {
+  touch-action: manipulation;
+}
+
+.safe-bottom {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+.safe-top {
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+
+/* Mobile smooth drawer animation */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
