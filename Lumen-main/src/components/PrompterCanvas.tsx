@@ -921,13 +921,13 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
                   <Square className="w-3.5 h-3.5 fill-current" />
                   <span>{formatRecTime(recordingSeconds)}</span>
                   <span className="text-[9px] uppercase tracking-wider bg-black/40 px-1 py-0.5 rounded-xs">
-                    STOP
+                    DETENER
                   </span>
                 </>
               ) : (
                 <>
                   <span className="w-2 h-2 rounded-full bg-red-500" />
-                  <span>REC</span>
+                  <span>Grabar</span>
                 </>
               )}
             </button>

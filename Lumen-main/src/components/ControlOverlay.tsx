@@ -126,57 +126,80 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[10px] font-mono font-bold text-[#666] tabular-nums w-14">
-            {formatTime(elapsedSeconds)}
-          </span>
+        <div className="flex items-center justify-between gap-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic(25);
+              onRestart();
+            }}
+            className="h-11 px-2.5 rounded-full bg-white border border-[#E0DDD5] flex flex-col items-center justify-center active:scale-90 min-w-[48px]"
+            title="Volver al inicio del texto"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span className="text-[8px] font-bold uppercase tracking-wide">Inicio</span>
+          </button>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic(25);
-                onRestart();
-              }}
-              className="w-11 h-11 rounded-full bg-white border border-[#E0DDD5] flex items-center justify-center active:scale-90"
-              title="Reiniciar"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </button>
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic(30);
+              onTogglePlay();
+            }}
+            className="w-14 h-14 rounded-full bg-[#121212] text-white flex items-center justify-center shadow-editorial active:scale-95 shrink-0"
+            title={isPlaying ? 'Pausar' : 'Reproducir'}
+          >
+            {isPlaying ? (
+              <Pause className="w-6 h-6 fill-current" />
+            ) : (
+              <Play className="w-6 h-6 fill-current ml-0.5" />
+            )}
+          </button>
 
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic(10);
+              setShowMobileSpeed((v) => !v);
+            }}
+            className={`h-11 px-2 rounded-full border flex flex-col items-center justify-center font-mono text-[10px] font-bold active:scale-95 min-w-[48px] ${
+              showMobileSpeed
+                ? 'bg-[#121212] text-white border-[#121212]'
+                : 'bg-white text-[#121212] border-[#E0DDD5]'
+            }`}
+            title="Velocidad"
+          >
+            <Gauge className="w-3.5 h-3.5" />
+            <span>{settings.wpm}</span>
+          </button>
+
+          {onToggleRecord && (
             <button
               type="button"
               onClick={() => {
                 triggerHaptic(30);
-                onTogglePlay();
+                onToggleRecord();
               }}
-              className="w-14 h-14 rounded-full bg-[#121212] text-white flex items-center justify-center shadow-editorial active:scale-95"
-              title={isPlaying ? 'Pausar' : 'Reproducir'}
+              className={`h-11 px-2.5 rounded-full border flex flex-col items-center justify-center font-mono font-bold active:scale-95 min-w-[52px] ${
+                isRecording
+                  ? 'bg-red-600 text-white border-red-500 animate-pulse'
+                  : 'bg-white text-red-600 border-red-200'
+              }`}
+              title={isRecording ? 'Detener grabación' : 'Grabar video'}
             >
-              {isPlaying ? (
-                <Pause className="w-6 h-6 fill-current" />
+              {isRecording ? (
+                <>
+                  <Square className="w-3.5 h-3.5 fill-current" />
+                  <span className="text-[8px] tabular-nums">{formatRecTime(recordingSeconds)}</span>
+                </>
               ) : (
-                <Play className="w-6 h-6 fill-current ml-0.5" />
+                <>
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-600" />
+                  <span className="text-[8px] uppercase">Grabar</span>
+                </>
               )}
             </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic(10);
-                setShowMobileSpeed((v) => !v);
-              }}
-              className={`h-11 px-3 rounded-full border flex items-center gap-1.5 font-mono text-xs font-bold active:scale-95 ${
-                showMobileSpeed
-                  ? 'bg-[#121212] text-white border-[#121212]'
-                  : 'bg-white text-[#121212] border-[#E0DDD5]'
-              }`}
-              title="Velocidad"
-            >
-              <Gauge className="w-4 h-4" />
-              <span>{settings.wpm}</span>
-            </button>
-          </div>
+          )}
 
           <button
             type="button"
@@ -184,14 +207,15 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
               triggerHaptic(15);
               onToggleVoice();
             }}
-            className={`w-11 h-11 rounded-full border flex items-center justify-center active:scale-90 relative ${
+            className={`h-11 px-2 rounded-full border flex flex-col items-center justify-center active:scale-90 relative min-w-[44px] ${
               isVoiceActive
                 ? 'bg-emerald-500 text-black border-emerald-400'
                 : 'bg-white text-[#121212] border-[#E0DDD5]'
             }`}
             title="Voz"
           >
-            <Mic className="w-4 h-4" />
+            <Mic className="w-3.5 h-3.5" />
+            <span className="text-[8px] font-bold uppercase">Voz</span>
             {isVoiceActive && (
               <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-black animate-pulse" />
             )}
@@ -214,13 +238,14 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center justify-center gap-4">
+        <div className="flex items-center justify-center gap-3">
           <button
             onClick={() => { triggerHaptic(25); onRestart(); }}
-            className="w-10 h-10 rounded-full bg-white hover:bg-[#121212] text-[#121212] hover:text-white border border-[#E0DDD5] flex items-center justify-center transition-all shadow-2xs"
-            title="Reiniciar al inicio"
+            className="h-11 px-3 rounded-full bg-white hover:bg-[#121212] text-[#121212] hover:text-white border border-[#E0DDD5] flex items-center gap-1.5 transition-all shadow-2xs"
+            title="Volver al inicio del texto"
           >
             <RotateCcw className="w-3.5 h-3.5" />
+            <span className="text-[10px] font-bold uppercase tracking-wider">Inicio</span>
           </button>
           <button
             onClick={() => { triggerHaptic(15); onNudgeBackward(); }}
@@ -247,16 +272,24 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
           {onToggleRecord && (
             <button
               onClick={() => { triggerHaptic(30); onToggleRecord(); }}
-              className={`h-10 px-3 rounded-full border flex items-center gap-1.5 font-mono text-xs font-bold transition-all ${
+              className={`h-11 px-3.5 rounded-full border flex items-center gap-1.5 font-mono text-xs font-bold transition-all ${
                 isRecording
                   ? 'bg-red-600 text-white border-red-500 animate-pulse'
                   : 'bg-white text-red-600 border-red-200 hover:border-red-400'
               }`}
+              title={isRecording ? 'Detener y guardar grabación' : 'Iniciar grabación de video'}
             >
               {isRecording ? (
-                <><Square className="w-3 h-3 fill-current" /><span>{formatRecTime(recordingSeconds)}</span></>
+                <>
+                  <Square className="w-3.5 h-3.5 fill-current" />
+                  <span>{formatRecTime(recordingSeconds)}</span>
+                  <span className="text-[9px] uppercase tracking-wider bg-black/25 px-1.5 py-0.5 rounded-xs">Detener</span>
+                </>
               ) : (
-                <><span className="w-2 h-2 rounded-full bg-red-600" /><span>REC</span></>
+                <>
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-600" />
+                  <span>Grabar</span>
+                </>
               )}
             </button>
           )}

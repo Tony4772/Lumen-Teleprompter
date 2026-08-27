@@ -216,14 +216,26 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
           <div className="hidden md:flex items-center gap-1.5">
             <button
               onClick={onToggleRecord}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-mono font-bold shadow-editorial ${
-                isRecording ? 'bg-red-600 text-white animate-pulse border border-red-400' : 'bg-white text-red-600 border border-red-200'
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-mono font-bold shadow-editorial border ${
+                isRecording
+                  ? 'bg-red-600 text-white animate-pulse border-red-400'
+                  : 'bg-white text-red-600 border-red-200 hover:border-red-400'
               }`}
+              title={isRecording ? 'Detener y guardar grabación' : 'Iniciar grabación de video'}
             >
               {isRecording ? (
-                <><Square className="w-3.5 h-3.5 fill-current" /><span>{formatRecTime(recordingSeconds)}</span></>
+                <>
+                  <Square className="w-3.5 h-3.5 fill-current" />
+                  <span>{formatRecTime(recordingSeconds)}</span>
+                  <span className="text-[9px] uppercase tracking-wider bg-black/30 px-1.5 py-0.5 rounded-xs">
+                    Detener
+                  </span>
+                </>
               ) : (
-                <><span className="w-2.5 h-2.5 rounded-full bg-red-600" /><span>Grabar</span></>
+                <>
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-600" />
+                  <span>Grabar</span>
+                </>
               )}
             </button>
             {takesCount > 0 && onOpenRecordingModal && (
