@@ -202,8 +202,10 @@ export const useVideoRecorder = ({
       resumeRecordingAudioContext();
 
       try {
+        // En Apple: sin mimeType forzado si hace falta — deja que WebKit elija H264+AAC.
         const mimeType = pickRecorderMimeType();
         let recorder: MediaRecorder;
+        const apple = isAppleTouchDevice();
 
         if (mimeType) {
           try {
@@ -218,6 +220,22 @@ export const useVideoRecorder = ({
         } else {
           recorder = new MediaRecorder(stream);
         }
+
+        // Si el tipo elegido no trae audio y hay pista de mic, reintentar con video/mp4 simple
+        if (
+          apple &&
+          stream.getAudioTracks().some((t) => t.readyState === 'live') &&
+          mimeType &&
+          !/mp4a|opus|aac/i.test(mimeType) &&
+          mimeType !== 'video/mp4'
+        ) {
+          try {
+            recorder = new MediaRecorder(stream, { mimeType: 'video/mp4' });
+          } catch {
+            // keep previous recorder
+          }
+        }
+
         mediaRecorderRef.current = recorder;
 
         recorder.ondataavailable = (event) => {
