@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { RecordedTake } from '../types';
-import { getSharedCameraStream } from '../utils/cameraStreamStore';
+import { getSharedCameraStream, setSharedCameraStream, isAppleTouchDevice } from '../utils/cameraStreamStore';
 
 export const getSupportedVideoMimeType = (): string => {
   if (typeof window === 'undefined' || typeof MediaRecorder === 'undefined') {
@@ -24,20 +24,15 @@ export const getSupportedVideoMimeType = (): string => {
   return '';
 };
 
-function isAppleTouchDevice(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  return (
-    /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-  );
+function isAppleTouchDeviceLocal(): boolean {
+  return isAppleTouchDevice();
 }
 
 function buildVideoFile(blob: Blob, customFilename?: string): File {
   const rawType = (blob.type || '').toLowerCase();
   const isMp4 = rawType.includes('mp4');
   const isWebm = rawType.includes('webm');
-  const ext = isMp4 ? 'mp4' : isWebm ? 'webm' : isAppleTouchDevice() ? 'mp4' : 'webm';
-  // iOS reconoce mejor video/mp4; si el blob ya trae tipo, respetarlo
+  const ext = isMp4 ? 'mp4' : isWebm ? 'webm' : isAppleTouchDeviceLocal() ? 'mp4' : 'webm';
   const mime = rawType.startsWith('video/')
     ? rawType.split(';')[0]
     : ext === 'mp4'
@@ -128,7 +123,7 @@ export async function saveRecordedVideo(
     return {
       ok: true,
       method: 'download',
-      message: isAppleTouchDevice()
+      message: isAppleTouchDeviceLocal()
         ? 'Si no lo ves en Archivos, vuelve a tocar Guardar y en el menú elige “Guardar en Archivos” (Descargas o En mi iPhone).'
         : `Descarga iniciada: ${file.name}`,
     };
@@ -187,7 +182,7 @@ export const useVideoRecorder = ({
 
   const startRecording = useCallback(
     async (
-      existingStream?: MediaStream | null,
+      _existingStream?: MediaStream | null,
       options?: { videoOnly?: boolean }
     ) => {
       setRecorderError(null);
@@ -202,52 +197,37 @@ export const useVideoRecorder = ({
       }
 
       try {
-        const shared = existingStream || getSharedCameraStream();
-        let stream: MediaStream;
+        // Siempre pedir video+audio EN UNA SOLA llamada.
+        // En iPhone pedir mic aparte del video falla y la toma queda muda.
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: 'user',
+          },
+          audio: videoOnly
+            ? false
+            : {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+              },
+        });
 
-        if (shared && shared.getVideoTracks().some((t) => t.readyState === 'live')) {
-          // Reutilizar la misma cámara del preview (clave en móvil)
-          const videoTrack = shared.getVideoTracks()[0];
-          const tracks: MediaStreamTrack[] = [videoTrack];
-
-          if (!videoOnly) {
-            try {
-              const audioOnly = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                  echoCancellation: true,
-                  noiseSuppression: true,
-                  autoGainControl: true,
-                },
-                video: false,
-              });
-              const audioTracks = audioOnly.getAudioTracks();
-              ownedAudioTracksRef.current = audioTracks;
-              tracks.push(...audioTracks);
-            } catch {
-              // Seguir solo con video si el mic falla
-            }
-          }
-
-          stream = new MediaStream(tracks);
-        } else {
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-              width: { ideal: 1280 },
-              height: { ideal: 720 },
-              facingMode: 'user',
-            },
-            audio: videoOnly
-              ? false
-              : {
-                  echoCancellation: true,
-                  noiseSuppression: true,
-                  autoGainControl: true,
-                },
-          });
-          ownedAudioTracksRef.current = stream.getAudioTracks();
+        if (!videoOnly && stream.getAudioTracks().length === 0) {
+          stream.getTracks().forEach((t) => t.stop());
+          setRecorderError(
+            'No se pudo capturar el micrófono. En iPhone: Ajustes → Safari/Chrome → Micrófono → Permitir, y vuelve a Iniciar.'
+          );
+          setIsRecording(false);
+          return false;
         }
 
+        // Actualizar preview con este mismo stream (incluye audio tracks)
+        setSharedCameraStream(stream, { stopPrevious: true });
+        ownedAudioTracksRef.current = stream.getAudioTracks();
         activeStreamRef.current = stream;
+
         const mimeType = getSupportedVideoMimeType();
         const recorderOptions: MediaRecorderOptions = mimeType ? { mimeType } : {};
 
@@ -270,9 +250,10 @@ export const useVideoRecorder = ({
         };
 
         recorder.onstop = () => {
+          // No apagar la cámara del preview; solo soltar el mic si hace falta
           ownedAudioTracksRef.current.forEach((t) => {
             try {
-              t.stop();
+              t.enabled = false;
             } catch {
               // ignore
             }
@@ -282,7 +263,7 @@ export const useVideoRecorder = ({
           const chunks = recordedChunksRef.current;
           if (!chunks.length) {
             setRecorderError(
-              'No se generó video. En el teléfono: permite Cámara (y Mic) y vuelve a Iniciar.'
+              'No se generó video. Permite Cámara y Micrófono y vuelve a Iniciar.'
             );
             setIsRecording(false);
             return;
@@ -325,7 +306,6 @@ export const useVideoRecorder = ({
           onFinishedRef.current?.(newTake);
         };
 
-        // timeslice ayuda a que móvil acumule chunks antes del stop
         try {
           recorder.start(1000);
         } catch {
@@ -345,8 +325,8 @@ export const useVideoRecorder = ({
         console.error('Error starting video recording:', err);
         setRecorderError(
           err?.name === 'NotAllowedError'
-            ? 'Permiso de cámara/mic denegado. Actívalo en Ajustes del navegador y reintenta.'
-            : 'No se pudo iniciar la grabación. Revisa permisos de cámara en el teléfono.'
+            ? 'Necesitamos cámara y micrófono. Cuando el iPhone lo pida, toca Permitir y vuelve a Iniciar.'
+            : 'No se pudo iniciar la grabación. Revisa permisos de cámara y micrófono.'
         );
         setIsRecording(false);
         return false;

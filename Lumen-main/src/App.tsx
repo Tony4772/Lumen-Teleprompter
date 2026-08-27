@@ -152,13 +152,11 @@ export default function App() {
     onMatchProgress: handleVoiceProgress,
     onPermissionDenied: () => {
       setSettings((prev) => ({ ...prev, speechTracking: false }));
-      setVoiceBanner('No se pudo usar el mic. Abre la app en Chrome y permite el micrófono.');
-      window.setTimeout(() => setVoiceBanner(null), 5000);
     },
     onUnsupported: (message) => {
       setSettings((prev) => ({ ...prev, speechTracking: false }));
       setVoiceBanner(message);
-      window.setTimeout(() => setVoiceBanner(null), 6000);
+      window.setTimeout(() => setVoiceBanner(null), 7000);
     },
   });
 
@@ -166,6 +164,17 @@ export default function App() {
     setSettings((s) => {
       const next = !s.speechTracking;
       if (next) {
+        // En iPhone no activamos el flag: mensaje amigable sin “ve a Chrome”
+        const isIPhone =
+          /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
+          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        if (isIPhone) {
+          setVoiceBanner(
+            'En iPhone el modo Voz no está disponible. Usa Iniciar y ajusta la velocidad (WPM).'
+          );
+          window.setTimeout(() => setVoiceBanner(null), 6000);
+          return s;
+        }
         setVoiceBanner('Voz ON — habla el texto y el teleprompter avanzará');
         window.setTimeout(() => setVoiceBanner(null), 3500);
       } else {
@@ -239,18 +248,21 @@ export default function App() {
     const needsCamera = !settings.cameraOverlay && mode !== 'camera';
     if (needsCamera) {
       setSettings((prev) => ({ ...prev, cameraOverlay: true }));
-      // Esperar a que el preview abra la cámara (stream compartido) antes de grabar
-      await new Promise((r) => setTimeout(r, 800));
+      await new Promise((r) => setTimeout(r, 500));
     }
 
-    const started = await startRecording(undefined, {
-      videoOnly: settings.speechTracking,
-    });
+    // Si Voz estaba activa, apagarla: el mic debe ir a la grabación (con audio)
+    if (settings.speechTracking) {
+      setSettings((prev) => ({ ...prev, speechTracking: false }));
+      setVoiceBanner('Voz pausada: el micrófono se usa para grabar el video con audio.');
+      window.setTimeout(() => setVoiceBanner(null), 4000);
+    }
 
+    // Siempre grabar CON audio (videoOnly: false)
+    const started = await startRecording(undefined, { videoOnly: false });
     setPlaybackStatus('playing');
 
     if (!started) {
-      // El scroll sigue, pero avisamos que NO hay video
       console.warn('Grabación no iniciada');
     }
   }, [settings.cameraOverlay, settings.speechTracking, mode, startRecording]);

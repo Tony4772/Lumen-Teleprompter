@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { extractScriptWords, normalizeSpeechToken } from '../utils/prompterUtils';
+import { isAppleTouchDevice } from '../utils/cameraStreamStore';
 
 interface SpeechFollowerOptions {
   enabled: boolean;
@@ -133,11 +134,22 @@ export function useSpeechFollower({
   }, []);
 
   const startListening = useCallback(() => {
+    // En iPhone (Safari/Chrome) el reconocimiento continuo de voz del navegador
+    // no es fiable: no pedimos “ve a ajustes de Chrome”.
+    if (isAppleTouchDevice()) {
+      const msg =
+        'En iPhone el modo Voz no está disponible aún. Usa Iniciar: el texto avanza solo (ajusta la velocidad WPM).';
+      setError(msg);
+      onUnsupportedRef.current?.(msg);
+      return;
+    }
+
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      const msg = 'Voz no disponible aquí. En el teléfono usa Chrome.';
+      const msg =
+        'Este navegador no soporta seguimiento por voz. Prueba Chrome en Android o en el computador.';
       setError(msg);
       onUnsupportedRef.current?.(msg);
       return;
@@ -160,8 +172,7 @@ export function useSpeechFollower({
     }
 
     const recognition = new SpeechRecognition();
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    // En móvil continuous=true suele cortarse; reiniciamos en onend
+    const isMobile = /Android/i.test(navigator.userAgent);
     recognition.continuous = !isMobile;
     recognition.interimResults = true;
     recognition.lang = 'es-ES';
@@ -182,7 +193,6 @@ export function useSpeechFollower({
       }
 
       if (code === 'not-allowed' || code === 'service-not-allowed') {
-        // En móvil a veces llega un false not-allowed al primer intento
         if (notAllowedRetriesRef.current < 1 && enabledRef.current) {
           notAllowedRetriesRef.current += 1;
           if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
@@ -194,18 +204,20 @@ export function useSpeechFollower({
         intentionalStopRef.current = true;
         enabledRef.current = false;
         setIsListening(false);
-        setError('Permite el micrófono en Chrome y vuelve a tocar Voz.');
+        const msg =
+          'Cuando el teléfono pida acceso al micrófono, toca Permitir y vuelve a activar Voz.';
+        setError(msg);
         onPermissionDeniedRef.current?.();
+        onUnsupportedRef.current?.(msg);
         return;
       }
 
       if (code === 'audio-capture') {
-        // Conflicto con grabación: reintentar un par de veces
         if (notAllowedRetriesRef.current < 2 && enabledRef.current) {
           notAllowedRetriesRef.current += 1;
           return;
         }
-        setError('El micrófono está ocupado (¿estás grabando?). Pausa la grabación o desactiva Voz.');
+        setError('El micrófono está ocupado por la grabación. Pausa el video e intenta Voz otra vez.');
         return;
       }
 
@@ -250,22 +262,37 @@ export function useSpeechFollower({
 
     recognitionRef.current = recognition;
 
-    try {
-      recognition.start();
-    } catch (err) {
-      console.error('Error starting speech recognition:', err);
-      // Reintento único (InvalidStateError frecuente en móvil)
-      if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
-      restartTimerRef.current = setTimeout(() => {
-        if (!enabledRef.current) return;
-        try {
-          recognition.start();
-        } catch (e2) {
-          console.error('Speech start retry failed:', e2);
-          setError('No se pudo iniciar Voz. Toca de nuevo el botón Voz.');
-        }
-      }, 350);
-    }
+    const kickOff = async () => {
+      // En Android: pedir mic con el diálogo nativo (claro para el usuario) antes del ASR
+      try {
+        const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mic.getTracks().forEach((t) => t.stop());
+      } catch {
+        const msg =
+          'Cuando el teléfono pida acceso al micrófono, toca Permitir y vuelve a activar Voz.';
+        setError(msg);
+        onUnsupportedRef.current?.(msg);
+        return;
+      }
+
+      try {
+        recognition.start();
+      } catch (err) {
+        console.error('Error starting speech recognition:', err);
+        if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+        restartTimerRef.current = setTimeout(() => {
+          if (!enabledRef.current) return;
+          try {
+            recognition.start();
+          } catch (e2) {
+            console.error('Speech start retry failed:', e2);
+            setError('No se pudo iniciar Voz. Toca de nuevo el botón Voz.');
+          }
+        }, 350);
+      }
+    };
+
+    void kickOff();
   }, [matchSpokenTokens]);
 
   startListeningRef.current = startListening;
@@ -279,14 +306,21 @@ export function useSpeechFollower({
 
   useEffect(() => {
     if (enabled) {
+      if (isAppleTouchDevice()) {
+        const msg =
+          'En iPhone el modo Voz no está disponible aún. Usa Iniciar: el texto avanza solo (ajusta WPM).';
+        setError(msg);
+        onUnsupportedRef.current?.(msg);
+        return;
+      }
       if (!isSpeechRecognitionAvailable()) {
-        const msg = 'Voz no disponible aquí. En el teléfono usa Chrome (no Instagram/Safari).';
+        const msg =
+          'Este navegador no soporta seguimiento por voz. Prueba Chrome en Android o en el computador.';
         setError(msg);
         onUnsupportedRef.current?.(msg);
         return;
       }
       notAllowedRetriesRef.current = 0;
-      // Pequeño delay para que el gesto del tap “cuente” en móvil
       const t = window.setTimeout(() => {
         if (enabledRef.current) startListening();
       }, 120);

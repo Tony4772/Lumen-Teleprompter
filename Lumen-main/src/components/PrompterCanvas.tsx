@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { PrompterSettings, PlaybackStatus, CameraLayout } from '../types';
 import { parseScriptContent, ParsedLine, countLineScriptWords } from '../utils/prompterUtils';
-import { setSharedCameraStream } from '../utils/cameraStreamStore';
+import { setSharedCameraStream, getSharedCameraStream, CAMERA_STREAM_EVENT } from '../utils/cameraStreamStore';
 import { 
   Eye, 
   ArrowRight, 
@@ -125,36 +125,62 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
   useEffect(() => {
     let stream: MediaStream | null = null;
     let cancelled = false;
+    let ownsStream = false;
+
+    const attachToVideo = (s: MediaStream) => {
+      if (videoRef.current) {
+        videoRef.current.srcObject = s;
+        videoRef.current.play().catch(console.warn);
+        setIsCameraReady(true);
+      }
+    };
 
     const setupCamera = async () => {
-      if (isCameraEnabled) {
-        try {
-          setCameraError(null);
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-            audio: false,
-          });
-          if (cancelled) {
-            stream.getTracks().forEach((t) => t.stop());
-            return;
-          }
-          setSharedCameraStream(stream);
+      if (!isCameraEnabled) return;
 
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-            videoRef.current.play().catch(console.warn);
-            setIsCameraReady(true);
-          }
-        } catch (err) {
-          console.warn('Webcam not accessible:', err);
-          setIsCameraReady(false);
-          setCameraError('No se pudo acceder a la cámara web.');
-          setSharedCameraStream(null);
+      // Si el grabador ya abrió un stream AV, reutilizarlo
+      const existing = getSharedCameraStream();
+      if (existing && existing.getVideoTracks().some((t) => t.readyState === 'live')) {
+        stream = existing;
+        ownsStream = false;
+        attachToVideo(existing);
+        setCameraError(null);
+        return;
+      }
+
+      try {
+        setCameraError(null);
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+          audio: false,
+        });
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
         }
+        ownsStream = true;
+        setSharedCameraStream(stream);
+        attachToVideo(stream);
+      } catch (err) {
+        console.warn('Webcam not accessible:', err);
+        setIsCameraReady(false);
+        setCameraError('No se pudo acceder a la cámara web.');
+        setSharedCameraStream(null);
       }
     };
 
     setupCamera();
+
+    const onExternalStream = () => {
+      const s = getSharedCameraStream();
+      if (s && s.getVideoTracks().some((t) => t.readyState === 'live')) {
+        stream = s;
+        ownsStream = false;
+        attachToVideo(s);
+        setCameraError(null);
+      }
+    };
+    window.addEventListener(CAMERA_STREAM_EVENT, onExternalStream);
 
     const syncInterval = setInterval(() => {
       if (isCameraEnabled && stream && videoRef.current && videoRef.current.srcObject !== stream) {
@@ -165,10 +191,14 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
     return () => {
       cancelled = true;
       clearInterval(syncInterval);
-      if (stream) {
+      window.removeEventListener(CAMERA_STREAM_EVENT, onExternalStream);
+      // Solo detener tracks si este efecto los abrió (no los del grabador)
+      if (ownsStream && stream) {
         stream.getTracks().forEach((t) => t.stop());
+        if (getSharedCameraStream() === stream) {
+          setSharedCameraStream(null);
+        }
       }
-      setSharedCameraStream(null);
     };
   }, [isCameraEnabled, settings.cameraLayout]);
 
