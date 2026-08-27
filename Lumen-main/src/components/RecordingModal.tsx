@@ -251,7 +251,7 @@ export const RecordingModal: React.FC<RecordingModalProps> = ({
             </div>
           </div>
           <div className="text-[10px] font-mono text-[#888] text-center border-t border-[#E0DDD5] pt-2">
-            Lumen Studio Video Engine • © EBYZOM E.I.I.R.L. Todos los derechos reservados.
+            Lumen Studio Video Engine • © EBYZOM E.I.R.L. Todos los derechos reservados.
           </div>
         </div>
       </div>

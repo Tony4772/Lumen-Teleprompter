@@ -100,7 +100,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
             </span>
           </div>
           <span className="text-[8px] font-mono tracking-tight text-[#888] hidden sm:block -mt-1">
-            © EBYZOM E.I.I.R.L.
+            © EBYZOM E.I.R.L.
           </span>
         </div>
 
@@ -284,12 +284,12 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
           )}
         </button>
 
-        {/* Donation Button (Culqi & Yape for EBYZOM E.I.I.R.L.) */}
+        {/* Donation Button (Culqi & Yape for EBYZOM E.I.R.L.) */}
         {onOpenDonation && (
           <button
             onClick={onOpenDonation}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-linear-to-r from-red-600 to-rose-700 hover:from-red-700 hover:to-rose-800 text-white text-xs font-mono font-bold transition-all shadow-editorial active:scale-95 border border-red-500/50"
-            title="Hacer una donación voluntaria a EBYZOM E.I.I.R.L. con Tarjeta o Yape (desde S/ 1)"
+            title="Hacer una donación voluntaria a EBYZOM E.I.R.L. con Tarjeta o Yape (desde S/ 1)"
           >
             <Heart className="w-3.5 h-3.5 fill-current text-white animate-pulse" />
             <span className="hidden md:inline">Donar</span>

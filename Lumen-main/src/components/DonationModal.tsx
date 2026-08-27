@@ -181,7 +181,7 @@ export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose })
 
       // Configure Culqi Settings
       Culqi.settings({
-        title: 'EBYZOM E.I.I.R.L.',
+        title: 'EBYZOM E.I.R.L.',
         currency: 'PEN',
         amount: amountInCents,
         order: orderRes.ok && orderData.orderId ? orderData.orderId : undefined,
@@ -244,7 +244,7 @@ export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose })
               </h2>
               <p className="text-[11px] font-mono text-[#AAA] flex items-center gap-1">
                 <Building2 className="w-3 h-3 text-[#AAA]" />
-                Beneficiario: <strong className="text-white">EBYZOM E.I.I.R.L.</strong>
+                Beneficiario: <strong className="text-white">EBYZOM E.I.R.L.</strong>
               </p>
             </div>
           </div>
@@ -273,7 +273,7 @@ export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose })
                   <strong className="text-green-700 font-bold">
                     S/ {successData.amount.toFixed(2)} PEN
                   </strong>{' '}
-                  ha sido recibida con éxito para <strong>EBYZOM E.I.I.R.L.</strong>
+                  ha sido recibida con éxito para <strong>EBYZOM E.I.R.L.</strong>
                 </p>
               </div>
 
@@ -316,7 +316,7 @@ export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose })
                 <div>
                   <p className="font-semibold">Apoyo libre y voluntario desde S/ 1 Sol</p>
                   <p className="text-[11px] text-amber-800/90 font-mono mt-0.5">
-                    Contribuye al mantenimiento de servidores, IA y nuevas funciones de Lumen Studio creadas por <strong>EBYZOM E.I.I.R.L.</strong>
+                    Contribuye al mantenimiento de servidores, IA y nuevas funciones de Lumen Studio creadas por <strong>EBYZOM E.I.R.L.</strong>
                   </p>
                 </div>
               </div>
@@ -479,7 +479,7 @@ export const DonationModal: React.FC<DonationModalProps> = ({ isOpen, onClose })
 
         {/* Footer */}
         <div className="px-6 py-3 bg-[#F4F1EA] border-t border-[#E0DDD5] flex items-center justify-between text-[11px] font-mono text-[#666]">
-          <span>© EBYZOM E.I.I.R.L.</span>
+          <span>© EBYZOM E.I.R.L.</span>
           <span className="text-[#888]">RUC / Registro Comercial Perú</span>
         </div>
       </div>

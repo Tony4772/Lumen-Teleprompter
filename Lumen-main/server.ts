@@ -39,7 +39,7 @@ async function startServer() {
   app.get('/api/culqi/config', (req, res) => {
     res.json({
       publicKey: CULQI_PUBLIC_KEY,
-      company: 'EBYZOM E.I.I.R.L.',
+      company: 'EBYZOM E.I.R.L.',
       currency: 'PEN',
       minAmount: 1, // 1 Sol
     });
@@ -56,7 +56,7 @@ async function startServer() {
       const orderPayload = {
         amount: amountInCents,
         currency_code: 'PEN',
-        description: `Donación a EBYZOM E.I.I.R.L. - ${message || 'Apoyo al proyecto'}`,
+        description: `Donación a EBYZOM E.I.R.L. - ${message || 'Apoyo al proyecto'}`,
         order_number: orderNumber,
         client_details: {
           first_name: (firstName || 'Donante').trim().slice(0, 50),
@@ -117,10 +117,10 @@ async function startServer() {
         currency_code: 'PEN',
         email: (email || 'donaciones@ebyzom.pe').trim(),
         source_id: tokenId,
-        description: `Donación voluntaria a EBYZOM E.I.I.R.L. - ${message || 'Lumen Teleprompter'}`,
+        description: `Donación voluntaria a EBYZOM E.I.R.L. - ${message || 'Lumen Teleprompter'}`,
         metadata: {
           donor_name: `${firstName || ''} ${lastName || ''}`.trim(),
-          beneficiary: 'EBYZOM E.I.I.R.L.',
+          beneficiary: 'EBYZOM E.I.R.L.',
         },
       };
 

@@ -110,7 +110,7 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
         {/* Footer */}
         <div className="px-5 sm:px-6 py-3 bg-[#F4F1EA] border-t border-[#E0DDD5] flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-[#666] font-mono">
           <div className="flex items-center gap-1.5 text-[11px]">
-            <span className="font-semibold text-[#121212]">© EBYZOM E.I.I.R.L.</span>
+            <span className="font-semibold text-[#121212]">© EBYZOM E.I.R.L.</span>
             <span>• Atajos & Teleprompter Pro</span>
           </div>
           <button

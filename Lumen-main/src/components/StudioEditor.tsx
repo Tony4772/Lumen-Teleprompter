@@ -336,7 +336,7 @@ Usa corchetes para agregar anotaciones escénicas, como [PAUSA 2s] o [MIRAR A C�
       {/* Bottom Hint & Copyright */}
       <div className="px-4 py-2 bg-[#F4F1EA] border-t border-[#E0DDD5] text-[10px] text-[#666] font-mono flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-[#121212]">© EBYZOM E.I.I.R.L.</span>
+          <span className="font-semibold text-[#121212]">© EBYZOM E.I.R.L.</span>
           <span className="text-[#AAA]">•</span>
           <span className="hidden sm:inline">Todos los derechos reservados</span>
         </div>

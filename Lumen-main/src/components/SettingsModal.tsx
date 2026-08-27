@@ -457,7 +457,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
-          {/* Section 6: Voluntary Donation to EBYZOM E.I.I.R.L. */}
+          {/* Section 6: Voluntary Donation to EBYZOM E.I.R.L. */}
           {onOpenDonation && (
             <div className="p-4 rounded-xs border border-red-200 bg-red-50/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
               <div className="flex items-start gap-3">
@@ -472,7 +472,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </span>
                   </h4>
                   <p className="text-[11px] text-[#555] font-mono mt-0.5">
-                    Apoya el desarrollo de Lumen Teleprompter Studio (propiedad de <strong>EBYZOM E.I.I.R.L.</strong>) desde S/ 1.00 Sol.
+                    Apoya el desarrollo de Lumen Teleprompter Studio (propiedad de <strong>EBYZOM E.I.R.L.</strong>) desde S/ 1.00 Sol.
                   </p>
                 </div>
               </div>
@@ -495,7 +495,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Footer */}
         <div className="px-6 py-4 bg-[#F4F1EA] border-t border-[#E0DDD5] flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="text-[11px] font-mono text-[#666] text-center sm:text-left">
-            <span className="font-bold text-[#121212]">© EBYZOM E.I.I.R.L.</span>
+            <span className="font-bold text-[#121212]">© EBYZOM E.I.R.L.</span>
             <span className="mx-1.5">•</span>
             <span>Todos los derechos reservados</span>
           </div>

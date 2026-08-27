@@ -1,6 +1,6 @@
 {
   "name": "Lumen Prompt - Professional Teleprompter",
-  "description": "High-contrast teleprompter studio with real-time scrolling, mirror beam-splitter modes, voice tracking, camera overlay, and video recording. Created by EBYZOM E.I.I.R.L.",
+  "description": "High-contrast teleprompter studio with real-time scrolling, mirror beam-splitter modes, voice tracking, camera overlay, and video recording. Created by EBYZOM E.I.R.L.",
   "requestFramePermissions": ["camera", "microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
