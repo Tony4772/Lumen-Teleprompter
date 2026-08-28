@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useStore } from '../store/useStore';
+import { useStore, DEFAULT_SETTINGS } from '../store/useStore';
 import { useVideoRecorder } from './useVideoRecorder';
 import { useSpeechFollower } from './useSpeechFollower';
 import { AudioRehearsalEngine } from '../utils/speechSynthesis';
@@ -7,7 +7,6 @@ import { beginAvCaptureFromUserGesture, getReadyAvStream, isMobileDevice } from 
 import { getSharedCameraStream } from '../utils/cameraStreamStore';
 import { countWords, estimateDurationSeconds } from '../utils/prompterUtils';
 
-export const usePrompterLogic = () => {
 export const usePrompterLogic = () => {
   // Use granular selectors for stability
   const scripts = useStore(s => s.scripts || []);
