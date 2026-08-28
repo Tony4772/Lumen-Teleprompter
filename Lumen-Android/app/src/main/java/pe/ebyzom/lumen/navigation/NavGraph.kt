@@ -6,9 +6,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import pe.ebyzom.lumen.ui.screens.ScriptEditorScreen
-import pe.ebyzom.lumen.ui.screens.ScriptListScreen
-import pe.ebyzom.lumen.ui.screens.TeleprompterScreen
+import pe.ebyzom.lumen.ui.screens.*
 import pe.ebyzom.lumen.viewmodel.ScriptViewModel
 
 @Composable
@@ -21,27 +19,14 @@ fun NavGraph(
         startDestination = Screen.ScriptList.route
     ) {
         composable(Screen.ScriptList.route) {
-            ScriptListScreen(
+            StudioScreen(
                 viewModel = viewModel,
-                onNavigateToEditor = { id ->
-                    navController.navigate(Screen.ScriptEditor.createRoute(id))
-                },
-                onNavigateToPrompter = { id ->
+                onLaunchPrompter = { id ->
                     navController.navigate(Screen.Teleprompter.createRoute(id))
                 }
             )
         }
-        composable(
-            route = Screen.ScriptEditor.route,
-            arguments = listOf(navArgument("scriptId") { type = NavType.LongType })
-        ) { backStackEntry ->
-            val scriptId = backStackEntry.arguments?.getLong("scriptId") ?: -1L
-            ScriptEditorScreen(
-                viewModel = viewModel,
-                scriptId = scriptId,
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
+        
         composable(
             route = Screen.Teleprompter.route,
             arguments = listOf(navArgument("scriptId") { type = NavType.LongType })
@@ -50,6 +35,20 @@ fun NavGraph(
             TeleprompterScreen(
                 viewModel = viewModel,
                 scriptId = scriptId,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.AIAtelier.route) {
+            AIAtelierScreen(
+                viewModel = viewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.Settings.route) {
+            SettingsScreen(
+                viewModel = viewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }

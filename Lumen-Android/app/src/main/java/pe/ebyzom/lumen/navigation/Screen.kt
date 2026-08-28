@@ -8,4 +8,6 @@ sealed class Screen(val route: String) {
     object Teleprompter : Screen("teleprompter/{scriptId}") {
         fun createRoute(scriptId: Long) = "teleprompter/$scriptId"
     }
+    object AIAtelier : Screen("ai_atelier")
+    object Settings : Screen("settings")
 }
