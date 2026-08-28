@@ -12,35 +12,38 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { beginAvCaptureFromUserGesture, isMobileDevice } from './utils/recordingCapture';
 
 export default function App() {
-  const store = useStore();
+  // Use granular selectors for stability
+  const scripts = useStore(s => s.scripts || []);
+  const activeScriptId = useStore(s => s.activeScriptId || '');
+  const settings = useStore(s => s.settings || DEFAULT_SETTINGS);
+  const mode = useStore(s => s.mode);
+  const mobileScreen = useStore(s => s.mobileScreen);
+  const playbackStatus = useStore(s => s.playbackStatus);
+  const isFullscreen = useStore(s => s.isFullscreen);
+  const elapsedSeconds = useStore(s => s.elapsedSeconds);
+  const countdownNumber = useStore(s => s.countdownNumber);
+  const isAudioRehearsing = useStore(s => s.isAudioRehearsing);
+  const voiceBanner = useStore(s => s.voiceBanner);
+  const isMobileMoreOpen = useStore(s => s.isMobileMoreOpen);
 
-  // Destructure store actions and state with safety
-  const {
-    scripts = [],
-    activeScriptId = '',
-    settings = DEFAULT_SETTINGS,
-    mode = 'studio',
-    mobileScreen = 'editor',
-    playbackStatus = 'idle',
-    isFullscreen = false,
-    elapsedSeconds = 0,
-    countdownNumber = null,
-    isAudioRehearsing = false,
-    voiceBanner = null,
-    isMobileMoreOpen = false,
-    setActiveScriptId,
-    updateSettings,
-    setMode,
-    setMobileScreen,
-    setMobileMoreOpen,
-    setAIOpen,
-    setSettingsOpen,
-    setShortcutsOpen,
-    setManualOpen,
-    setLibraryOpen,
-    setDonationOpen,
-    setRecordingModalOpen,
-  } = store;
+  // Actions
+  const setActiveScriptId = useStore(s => s.setActiveScriptId);
+  const updateSettings = useStore(s => s.updateSettings);
+  const setMode = useStore(s => s.setMode);
+  const setMobileScreen = useStore(s => s.setMobileScreen);
+  const setMobileMoreOpen = useStore(s => s.setMobileMoreOpen);
+  const setAIOpen = useStore(s => s.setAIOpen);
+  const setSettingsOpen = useStore(s => s.setSettingsOpen);
+  const setShortcutsOpen = useStore(s => s.setShortcutsOpen);
+  const setManualOpen = useStore(s => s.setManualOpen);
+  const setLibraryOpen = useStore(s => s.setLibraryOpen);
+  const setDonationOpen = useStore(s => s.setDonationOpen);
+  const setRecordingModalOpen = useStore(s => s.setRecordingModalOpen);
+  const updateScript = useStore(s => s.updateScript);
+  const createScript = useStore(s => s.createScript);
+  const deleteScript = useStore(s => s.deleteScript);
+  const cloneScript = useStore(s => s.cloneScript);
+  const setVoiceBanner = useStore(s => s.setVoiceBanner);
 
   // Get prompter logic and recorder
   const logic = usePrompterLogic();
@@ -151,10 +154,10 @@ export default function App() {
               scripts={scripts}
               activeScriptId={activeScriptId}
               onSelectScript={setActiveScriptId}
-              onUpdateScript={store.updateScript}
-              onCreateScript={store.createScript}
-              onDeleteScript={store.deleteScript}
-              onCloneScript={store.cloneScript}
+              onUpdateScript={updateScript}
+              onCreateScript={createScript}
+              onDeleteScript={deleteScript}
+              onCloneScript={cloneScript}
               onOpenAIModal={() => setAIOpen(true)}
               onLaunchPrompter={() => {
                 setMobileScreen('prompter');
@@ -397,7 +400,7 @@ export default function App() {
           {voiceBanner ? (
             <button
               type="button"
-              onClick={() => store.setVoiceBanner(null)}
+              onClick={() => setVoiceBanner(null)}
               className="px-3 py-2 rounded-xs bg-neutral-900/90 text-white text-[11px] font-mono shadow-editorial text-center border border-white/20"
             >
               {voiceBanner}

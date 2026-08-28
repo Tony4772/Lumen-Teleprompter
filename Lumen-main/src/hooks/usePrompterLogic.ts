@@ -8,29 +8,34 @@ import { getSharedCameraStream } from '../utils/cameraStreamStore';
 import { countWords, estimateDurationSeconds } from '../utils/prompterUtils';
 
 export const usePrompterLogic = () => {
-  const store = useStore();
-  const {
-    scripts = [],
-    activeScriptId = '',
-    settings,
-    playbackStatus = 'idle',
-    mode = 'studio',
-    countdownNumber = null,
-    isAudioRehearsing = false,
-    setPlaybackStatus,
-    updateSettings,
-    setCountdownNumber,
-    setIsAudioRehearsing,
-    setElapsedSeconds,
-    setVoiceBanner,
-    setActiveScriptId,
-    setMobileScreen,
-    setMode,
-  } = store;
+export const usePrompterLogic = () => {
+  // Use granular selectors for stability
+  const scripts = useStore(s => s.scripts || []);
+  const activeScriptId = useStore(s => s.activeScriptId || '');
+  const settings = useStore(s => s.settings || DEFAULT_SETTINGS);
+  const playbackStatus = useStore(s => s.playbackStatus);
+  const mode = useStore(s => s.mode);
+  const countdownNumber = useStore(s => s.countdownNumber);
+  const isAudioRehearsing = useStore(s => s.isAudioRehearsing);
 
-  const scriptsList = scripts || [];
+  // Actions
+  const setPlaybackStatus = useStore(s => s.setPlaybackStatus);
+  const updateSettings = useStore(s => s.updateSettings);
+  const setCountdownNumber = useStore(s => s.setCountdownNumber);
+  const setIsAudioRehearsing = useStore(s => s.setIsAudioRehearsing);
+  const setElapsedSeconds = useStore(s => s.setElapsedSeconds);
+  const setVoiceBanner = useStore(s => s.setVoiceBanner);
+  const setActiveScriptId = useStore(s => s.setActiveScriptId);
+  const setMobileScreen = useStore(s => s.setMobileScreen);
+  const setMode = useStore(s => s.setMode);
+  const setIsFullscreen = useStore(s => s.setIsFullscreen);
+  const setRecordingModalOpen = useStore(s => s.setRecordingModalOpen);
+  const updateScript = useStore(s => s.updateScript);
+  const addScript = useStore(s => s.addScript);
+
+  const scriptsList = scripts;
   const activeScript = scriptsList.find((s) => s.id === activeScriptId) || scriptsList[0];
-  const currentSettings = settings || { wpm: 135, fontSize: 48, lineHeight: 1.35, speechTracking: false, cameraOverlay: true, countdownSeconds: 5 };
+  const currentSettings = settings;
 
   const wordCount = countWords(activeScript?.content || '');
   const totalEstimatedSeconds = estimateDurationSeconds(wordCount, currentSettings.wpm);
@@ -40,7 +45,7 @@ export const usePrompterLogic = () => {
     scriptTitle: activeScript?.title,
     scriptId: activeScript?.id,
     onRecordingFinished: () => {
-      store.setRecordingModalOpen(true);
+      setRecordingModalOpen(true);
     },
   });
 
@@ -63,10 +68,10 @@ export const usePrompterLogic = () => {
     onMatchProgress: handleVoiceProgress,
     suspended: isRecording || playbackStatus === 'countdown',
     onPermissionDenied: () => {
-      store.updateSettings({ speechTracking: false });
+      updateSettings({ speechTracking: false });
     },
     onUnsupported: (message) => {
-      store.updateSettings({ speechTracking: false });
+      updateSettings({ speechTracking: false });
       setVoiceBanner(message);
       window.setTimeout(() => setVoiceBanner(null), 7000);
     },
@@ -75,27 +80,28 @@ export const usePrompterLogic = () => {
   const { resetVoiceTracking, startFromUserGesture } = speechFollower;
 
   const handleToggleVoice = useCallback(() => {
-    if (currentSettings.speechTracking) {
+    const { settings: current } = useStore.getState();
+    if (current.speechTracking) {
       setVoiceBanner(null);
-      store.updateSettings({ speechTracking: false });
+      updateSettings({ speechTracking: false });
       return;
     }
     setVoiceBanner('Voz ON — habla el texto y el teleprompter avanzará');
     window.setTimeout(() => setVoiceBanner(null), 3500);
-    store.updateSettings({ speechTracking: true });
+    updateSettings({ speechTracking: true });
     startFromUserGesture();
-  }, [currentSettings.speechTracking, startFromUserGesture, store, setVoiceBanner]);
+  }, [updateSettings, setVoiceBanner, startFromUserGesture]);
 
   // Sync voice tracking state
   useEffect(() => {
     if (currentSettings.speechTracking && playbackStatus === 'playing') {
-      store.setPlaybackStatus('paused');
+      setPlaybackStatus('paused');
     }
     if (!currentSettings.speechTracking) {
       resetVoiceTracking();
       setLastVoiceWord('');
     }
-  }, [currentSettings.speechTracking, playbackStatus, store, resetVoiceTracking]);
+  }, [currentSettings.speechTracking, playbackStatus, setPlaybackStatus, resetVoiceTracking]);
 
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isRecordingRef = useRef(isRecording);
@@ -106,46 +112,49 @@ export const usePrompterLogic = () => {
       clearInterval(countdownIntervalRef.current);
       countdownIntervalRef.current = null;
     }
-    store.setCountdownNumber(null);
-  }, [store]);
+    setCountdownNumber(null);
+  }, [setCountdownNumber]);
 
-  // Playback timer ticker
+  // Playback timer ticker - STABLE REFERENCE
   useEffect(() => {
     let timer: any;
     if (playbackStatus === 'playing') {
       timer = setInterval(() => {
-        store.setElapsedSeconds((prev) => prev + 1);
+        setElapsedSeconds((prev) => prev + 1);
       }, 1000);
     }
     return () => clearInterval(timer);
-  }, [playbackStatus, store]);
+  }, [playbackStatus, setElapsedSeconds]);
 
   useEffect(() => {
     return () => clearCountdown();
   }, [clearCountdown]);
 
   const beginPlayAndRecord = useCallback(async () => {
-    if (!currentSettings.cameraOverlay && mode !== 'camera') {
-      store.updateSettings({ cameraOverlay: true });
+    const { mode: currentMode, settings: currentSettings } = useStore.getState();
+    if (!currentSettings.cameraOverlay && currentMode !== 'camera') {
+      updateSettings({ cameraOverlay: true });
     }
 
-    store.setPlaybackStatus('playing');
+    setPlaybackStatus('playing');
     try {
       await startRecording(undefined, { videoOnly: false });
     } catch (err) {
       console.warn('startRecording failed; teleprompter keeps playing:', err);
     }
-  }, [currentSettings.cameraOverlay, mode, startRecording, store]);
+  }, [updateSettings, setPlaybackStatus, startRecording]);
 
   const handleTogglePlay = useCallback((prefetchedAv?: Promise<MediaStream>) => {
-    if (playbackStatus === 'countdown') {
+    const { playbackStatus: currentStatus, settings: currentSettings } = useStore.getState();
+
+    if (currentStatus === 'countdown') {
       clearCountdown();
-      store.setPlaybackStatus('idle');
+      setPlaybackStatus('idle');
       return;
     }
 
-    if (playbackStatus === 'playing') {
-      store.setPlaybackStatus('paused');
+    if (currentStatus === 'playing') {
+      setPlaybackStatus('paused');
       if (isRecordingRef.current) {
         stopRecording();
       }
@@ -154,13 +163,13 @@ export const usePrompterLogic = () => {
 
     const avPromise = prefetchedAv ?? beginAvCaptureFromUserGesture();
 
-    store.updateSettings({
+    updateSettings({
       cameraOverlay: true,
       cameraLayout: currentSettings.cameraLayout || 'pip',
     });
 
     AudioRehearsalEngine.stop();
-    store.setIsAudioRehearsing(false);
+    setIsAudioRehearsing(false);
 
     void (async () => {
       await adoptAvPromise(avPromise);
@@ -169,16 +178,17 @@ export const usePrompterLogic = () => {
         !!getSharedCameraStream()?.getVideoTracks().some((t) => t.readyState === 'live') ||
         !!getReadyAvStream();
 
-      if (currentSettings.countdownSeconds > 0 && playbackStatus === 'idle') {
+      const latestSettings = useStore.getState().settings;
+      if (latestSettings.countdownSeconds > 0 && currentStatus === 'idle') {
         clearCountdown();
-        store.setPlaybackStatus('countdown');
-        let currentCount = currentSettings.countdownSeconds;
-        store.setCountdownNumber(currentCount);
+        setPlaybackStatus('countdown');
+        let currentCount = latestSettings.countdownSeconds;
+        setCountdownNumber(currentCount);
 
         countdownIntervalRef.current = setInterval(() => {
           currentCount -= 1;
           if (currentCount > 0) {
-            store.setCountdownNumber(currentCount);
+            setCountdownNumber(currentCount);
           } else {
             clearCountdown();
             void beginPlayAndRecord();
@@ -193,14 +203,14 @@ export const usePrompterLogic = () => {
       }
     })();
   }, [
-    playbackStatus,
-    currentSettings.countdownSeconds,
-    currentSettings.cameraLayout,
     clearCountdown,
+    setPlaybackStatus,
+    updateSettings,
+    setIsAudioRehearsing,
     adoptAvPromise,
+    setCountdownNumber,
     beginPlayAndRecord,
     stopRecording,
-    store,
   ]);
 
   const handleRestart = useCallback(() => {
@@ -208,59 +218,67 @@ export const usePrompterLogic = () => {
     if (isRecordingRef.current) {
       stopRecording();
     }
-    store.setPlaybackStatus('idle');
-    store.setElapsedSeconds(0);
+    setPlaybackStatus('idle');
+    setElapsedSeconds(0);
     resetVoiceTracking();
     AudioRehearsalEngine.stop();
-    store.setIsAudioRehearsing(false);
+    setIsAudioRehearsing(false);
 
     const canvasScroller = document.querySelector('.no-scrollbar');
     if (canvasScroller) {
       canvasScroller.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, [resetVoiceTracking, clearCountdown, stopRecording, store]);
+  }, [clearCountdown, stopRecording, setPlaybackStatus, setElapsedSeconds, resetVoiceTracking, setIsAudioRehearsing]);
 
   const handleNudgeForward = useCallback(() => {
+    const { settings: current } = useStore.getState();
     const canvasScroller = document.querySelector('.no-scrollbar');
     if (canvasScroller) {
-      const jumpPx = (currentSettings.fontSize * currentSettings.lineHeight * 6);
+      const jumpPx = (current.fontSize * current.lineHeight * 6);
       canvasScroller.scrollBy({ top: jumpPx, behavior: 'smooth' });
     }
-  }, [currentSettings.fontSize, currentSettings.lineHeight]);
+  }, []);
 
   const handleNudgeBackward = useCallback(() => {
+    const { settings: current } = useStore.getState();
     const canvasScroller = document.querySelector('.no-scrollbar');
     if (canvasScroller) {
-      const jumpPx = (currentSettings.fontSize * currentSettings.lineHeight * 6);
+      const jumpPx = (current.fontSize * current.lineHeight * 6);
       canvasScroller.scrollBy({ top: -jumpPx, behavior: 'smooth' });
     }
-  }, [currentSettings.fontSize, currentSettings.lineHeight]);
+  }, []);
 
   const handleToggleAudioRehearsal = useCallback(() => {
-    if (isAudioRehearsing) {
+    const state = useStore.getState();
+    const isRehearsing = state.isAudioRehearsing;
+    const currentScripts = state.scripts || [];
+    const scriptId = state.activeScriptId;
+    const currentScript = currentScripts.find(s => s.id === scriptId) || currentScripts[0];
+
+    if (isRehearsing) {
       AudioRehearsalEngine.stop();
-      store.setIsAudioRehearsing(false);
+      setIsAudioRehearsing(false);
     } else {
-      if (!activeScript) return;
-      store.setIsAudioRehearsing(true);
+      if (!currentScript) return;
+      setIsAudioRehearsing(true);
       AudioRehearsalEngine.speak(
-        activeScript.content,
-        currentSettings.wpm,
+        currentScript.content,
+        state.settings.wpm,
         undefined,
-        () => store.setIsAudioRehearsing(false)
+        () => setIsAudioRehearsing(false)
       );
     }
-  }, [isAudioRehearsing, activeScript, currentSettings.wpm, store]);
+  }, [setIsAudioRehearsing]);
 
   const handleToggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(console.warn);
-      store.setIsFullscreen(true);
+      setIsFullscreen(true);
     } else {
       document.exitFullscreen().catch(console.warn);
-      store.setIsFullscreen(false);
+      setIsFullscreen(false);
     }
-  }, [store]);
+  }, [setIsFullscreen]);
 
   const handleToggleRecord = useCallback(() => {
     handleTogglePlay();

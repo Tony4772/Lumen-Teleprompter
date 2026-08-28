@@ -23,21 +23,46 @@ export const ModalsContainer: React.FC<ModalsContainerProps> = ({
   onClearAllTakes,
   onToggleRecord,
 }) => {
-  const store = useStore();
+  // Use granular selectors for stability
+  const scripts = useStore(s => s.scripts || []);
+  const settings = useStore(s => s.settings || DEFAULT_SETTINGS);
+  const activeScriptId = useStore(s => s.activeScriptId);
+  const isRecordingModalOpen = useStore(s => s.isRecordingModalOpen);
+  const isLibraryOpen = useStore(s => s.isLibraryOpen);
+  const isSettingsOpen = useStore(s => s.isSettingsOpen);
+  const isShortcutsOpen = useStore(s => s.isShortcutsOpen);
+  const isDonationOpen = useStore(s => s.isDonationOpen);
+  const isManualOpen = useStore(s => s.isManualOpen);
+  const isAIOpen = useStore(s => s.isAIOpen);
 
-  const scripts = store.scripts || [];
-  const settings = store.settings || DEFAULT_SETTINGS;
-  const activeScript = scripts.find(s => s.id === store.activeScriptId) || scripts[0];
+  // Actions
+  const setRecordingModalOpen = useStore(s => s.setRecordingModalOpen);
+  const setLibraryOpen = useStore(s => s.setLibraryOpen);
+  const setActiveScriptId = useStore(s => s.setActiveScriptId);
+  const setMobileScreen = useStore(s => s.setMobileScreen);
+  const createScript = useStore(s => s.createScript);
+  const deleteScript = useStore(s => s.deleteScript);
+  const cloneScript = useStore(s => s.cloneScript);
+  const addScript = useStore(s => s.addScript);
+  const setAIOpen = useStore(s => s.setAIOpen);
+  const setSettingsOpen = useStore(s => s.setSettingsOpen);
+  const updateSettings = useStore(s => s.updateSettings);
+  const setDonationOpen = useStore(s => s.setDonationOpen);
+  const setManualOpen = useStore(s => s.setManualOpen);
+  const updateScript = useStore(s => s.updateScript);
+  const setShortcutsOpen = useStore(s => s.setShortcutsOpen);
+
+  const activeScript = scripts.find(s => s.id === activeScriptId) || scripts[0];
 
   return (
     <>
       <RecordingModal
-        isOpen={!!store.isRecordingModalOpen}
+        isOpen={!!isRecordingModalOpen}
         take={latestTake}
         takesHistory={takesHistory}
-        onClose={() => store.setRecordingModalOpen(false)}
+        onClose={() => setRecordingModalOpen(false)}
         onRetake={() => {
-          store.setRecordingModalOpen(false);
+          setRecordingModalOpen(false);
           onToggleRecord();
         }}
         onDeleteTake={onDeleteTake}
@@ -45,57 +70,57 @@ export const ModalsContainer: React.FC<ModalsContainerProps> = ({
       />
 
       <ScriptsLibraryModal
-        isOpen={!!store.isLibraryOpen}
-        onClose={() => store.setLibraryOpen(false)}
+        isOpen={!!isLibraryOpen}
+        onClose={() => setLibraryOpen(false)}
         scripts={scripts}
-        activeScriptId={store.activeScriptId}
+        activeScriptId={activeScriptId}
         onSelectScript={(id) => {
-          store.setActiveScriptId(id);
-          store.setMobileScreen('editor');
+          setActiveScriptId(id);
+          setMobileScreen('editor');
         }}
-        onCreateScript={store.createScript}
-        onDeleteScript={store.deleteScript}
-        onCloneScript={store.cloneScript}
+        onCreateScript={createScript}
+        onDeleteScript={deleteScript}
+        onCloneScript={cloneScript}
         onImportScript={(newScript) => {
-          store.addScript(newScript);
+          addScript(newScript);
         }}
         onOpenAIModal={() => {
-          store.setLibraryOpen(false);
-          store.setAIOpen(true);
+          setLibraryOpen(false);
+          setAIOpen(true);
         }}
       />
 
       <SettingsModal
-        isOpen={!!store.isSettingsOpen}
-        onClose={() => store.setSettingsOpen(false)}
+        isOpen={!!isSettingsOpen}
+        onClose={() => setSettingsOpen(false)}
         settings={settings}
-        onUpdateSettings={store.updateSettings}
-        onOpenDonation={() => store.setDonationOpen(true)}
-        onOpenManual={() => store.setManualOpen(true)}
+        onUpdateSettings={updateSettings}
+        onOpenDonation={() => setDonationOpen(true)}
+        onOpenManual={() => setManualOpen(true)}
       />
 
       <ShortcutsModal
-        isOpen={!!store.isShortcutsOpen}
-        onClose={() => store.setShortcutsOpen(false)}
+        isOpen={!!isShortcutsOpen}
+        onClose={() => setShortcutsOpen(false)}
       />
 
       <DonationModal
-        isOpen={!!store.isDonationOpen}
-        onClose={() => store.setDonationOpen(false)}
+        isOpen={!!isDonationOpen}
+        onClose={() => setDonationOpen(false)}
       />
 
       <UserManualModal
-        isOpen={!!store.isManualOpen}
-        onClose={() => store.setManualOpen(false)}
+        isOpen={!!isManualOpen}
+        onClose={() => setManualOpen(false)}
       />
 
       <AIAssistantModal
-        isOpen={!!store.isAIOpen}
-        onClose={() => store.setAIOpen(false)}
+        isOpen={!!isAIOpen}
+        onClose={() => setAIOpen(false)}
         currentScriptContent={activeScript?.content || ''}
         onApplyScript={(newContent) => {
           if (activeScript) {
-            store.updateScript({
+            updateScript({
               ...activeScript,
               content: newContent,
               updatedAt: new Date().toISOString(),
@@ -112,10 +137,10 @@ export const ModalsContainer: React.FC<ModalsContainerProps> = ({
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           };
-          store.addScript(newScript);
-          store.setMobileScreen('editor');
+          addScript(newScript);
+          setMobileScreen('editor');
         }}
-        onOpenDonation={() => store.setDonationOpen(true)}
+        onOpenDonation={() => setDonationOpen(true)}
       />
     </>
   );

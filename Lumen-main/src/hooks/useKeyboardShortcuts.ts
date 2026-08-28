@@ -12,14 +12,12 @@ interface ShortcutActions {
 }
 
 export const useKeyboardShortcuts = (actions: ShortcutActions) => {
-  const store = useStore();
-  const {
-    updateSettings,
-    setSettingsOpen,
-    setShortcutsOpen,
-    setAIOpen,
-    setLibraryOpen
-  } = store;
+  // Use granular selectors for actions
+  const updateSettings = useStore(s => s.updateSettings);
+  const setSettingsOpen = useStore(s => s.setSettingsOpen);
+  const setShortcutsOpen = useStore(s => s.setShortcutsOpen);
+  const setAIOpen = useStore(s => s.setAIOpen);
+  const setLibraryOpen = useStore(s => s.setLibraryOpen);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -31,15 +29,18 @@ export const useKeyboardShortcuts = (actions: ShortcutActions) => {
         return;
       }
 
+      // Use useStore.getState() for values that change frequently to keep the effect stable
+      const { settings } = useStore.getState();
+
       if (e.code === 'Space') {
         e.preventDefault();
         actions.handleTogglePlay();
       } else if (e.code === 'ArrowUp') {
         e.preventDefault();
-        updateSettings({ wpm: Math.min(600, store.settings.wpm + 5) });
+        updateSettings({ wpm: Math.min(600, settings.wpm + 5) });
       } else if (e.code === 'ArrowDown') {
         e.preventDefault();
-        updateSettings({ wpm: Math.max(10, store.settings.wpm - 5) });
+        updateSettings({ wpm: Math.max(10, settings.wpm - 5) });
       } else if (e.code === 'ArrowLeft') {
         e.preventDefault();
         actions.handleNudgeBackward();
@@ -52,17 +53,17 @@ export const useKeyboardShortcuts = (actions: ShortcutActions) => {
         e.preventDefault();
         actions.handleToggleRecord();
       } else if (e.key === 'm' || e.key === 'M') {
-        updateSettings({ mirrorX: !store.settings.mirrorX });
+        updateSettings({ mirrorX: !settings.mirrorX });
       } else if (e.key === 'f' || e.key === 'F') {
         actions.handleToggleFullscreen();
       } else if (e.key === 'c' || e.key === 'C') {
-        updateSettings({ cameraOverlay: !store.settings.cameraOverlay });
+        updateSettings({ cameraOverlay: !settings.cameraOverlay });
       } else if (e.key === 'v' || e.key === 'V') {
         actions.handleToggleVoice();
       } else if (e.key === '+' || e.key === '=') {
-        updateSettings({ fontSize: Math.min(120, store.settings.fontSize + 2) });
+        updateSettings({ fontSize: Math.min(120, settings.fontSize + 2) });
       } else if (e.key === '-' || e.key === '_') {
-        updateSettings({ fontSize: Math.max(20, store.settings.fontSize - 2) });
+        updateSettings({ fontSize: Math.max(20, settings.fontSize - 2) });
       } else if (e.key === 'Escape') {
         setSettingsOpen(false);
         setShortcutsOpen(false);
@@ -73,5 +74,5 @@ export const useKeyboardShortcuts = (actions: ShortcutActions) => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [actions, updateSettings, store.settings, setSettingsOpen, setShortcutsOpen, setAIOpen, setLibraryOpen]);
+  }, [actions, updateSettings, setSettingsOpen, setShortcutsOpen, setAIOpen, setLibraryOpen]);
 };
