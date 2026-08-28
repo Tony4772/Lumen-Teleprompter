@@ -10,15 +10,14 @@ import { countWords, estimateDurationSeconds } from '../utils/prompterUtils';
 export const usePrompterLogic = () => {
   const store = useStore();
   const {
-    scripts,
-    activeScriptId,
+    scripts = [],
+    activeScriptId = '',
     settings,
-    playbackStatus,
-    mode,
-    countdownNumber,
-    isAudioRehearsing,
+    playbackStatus = 'idle',
+    mode = 'studio',
+    countdownNumber = null,
+    isAudioRehearsing = false,
     setPlaybackStatus,
-    setSettings,
     updateSettings,
     setCountdownNumber,
     setIsAudioRehearsing,
@@ -29,9 +28,12 @@ export const usePrompterLogic = () => {
     setMode,
   } = store;
 
-  const activeScript = scripts.find((s) => s.id === activeScriptId) || scripts[0];
+  const scriptsList = scripts || [];
+  const activeScript = scriptsList.find((s) => s.id === activeScriptId) || scriptsList[0];
+  const currentSettings = settings || { wpm: 135, fontSize: 48, lineHeight: 1.35, speechTracking: false, cameraOverlay: true, countdownSeconds: 5 };
+
   const wordCount = countWords(activeScript?.content || '');
-  const totalEstimatedSeconds = estimateDurationSeconds(wordCount, settings.wpm);
+  const totalEstimatedSeconds = estimateDurationSeconds(wordCount, currentSettings.wpm);
 
   // Video Recorder Hook
   const recorder = useVideoRecorder({
@@ -42,7 +44,7 @@ export const usePrompterLogic = () => {
     },
   });
 
-  const { isRecording, startRecording, stopRecording, adoptAvPromise } = recorder;
+  const { isRecording = false, startRecording, stopRecording, adoptAvPromise } = recorder;
 
   // Speech Recognition Follower integration
   const [voiceProgressRatio, setVoiceProgressRatio] = useState<number>(0);
@@ -56,7 +58,7 @@ export const usePrompterLogic = () => {
   }, []);
 
   const speechFollower = useSpeechFollower({
-    enabled: settings.speechTracking,
+    enabled: !!currentSettings.speechTracking,
     scriptContent: activeScript?.content || '',
     onMatchProgress: handleVoiceProgress,
     suspended: isRecording || playbackStatus === 'countdown',
@@ -73,7 +75,7 @@ export const usePrompterLogic = () => {
   const { resetVoiceTracking, startFromUserGesture } = speechFollower;
 
   const handleToggleVoice = useCallback(() => {
-    if (settings.speechTracking) {
+    if (currentSettings.speechTracking) {
       setVoiceBanner(null);
       store.updateSettings({ speechTracking: false });
       return;
@@ -82,18 +84,18 @@ export const usePrompterLogic = () => {
     window.setTimeout(() => setVoiceBanner(null), 3500);
     store.updateSettings({ speechTracking: true });
     startFromUserGesture();
-  }, [settings.speechTracking, startFromUserGesture, store, setVoiceBanner]);
+  }, [currentSettings.speechTracking, startFromUserGesture, store, setVoiceBanner]);
 
   // Sync voice tracking state
   useEffect(() => {
-    if (settings.speechTracking && playbackStatus === 'playing') {
+    if (currentSettings.speechTracking && playbackStatus === 'playing') {
       store.setPlaybackStatus('paused');
     }
-    if (!settings.speechTracking) {
+    if (!currentSettings.speechTracking) {
       resetVoiceTracking();
       setLastVoiceWord('');
     }
-  }, [settings.speechTracking, playbackStatus, store, resetVoiceTracking]);
+  }, [currentSettings.speechTracking, playbackStatus, store, resetVoiceTracking]);
 
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isRecordingRef = useRef(isRecording);
@@ -123,7 +125,7 @@ export const usePrompterLogic = () => {
   }, [clearCountdown]);
 
   const beginPlayAndRecord = useCallback(async () => {
-    if (!settings.cameraOverlay && mode !== 'camera') {
+    if (!currentSettings.cameraOverlay && mode !== 'camera') {
       store.updateSettings({ cameraOverlay: true });
     }
 
@@ -133,7 +135,7 @@ export const usePrompterLogic = () => {
     } catch (err) {
       console.warn('startRecording failed; teleprompter keeps playing:', err);
     }
-  }, [settings.cameraOverlay, mode, startRecording, store]);
+  }, [currentSettings.cameraOverlay, mode, startRecording, store]);
 
   const handleTogglePlay = useCallback((prefetchedAv?: Promise<MediaStream>) => {
     if (playbackStatus === 'countdown') {
@@ -154,7 +156,7 @@ export const usePrompterLogic = () => {
 
     store.updateSettings({
       cameraOverlay: true,
-      cameraLayout: settings.cameraLayout || 'pip',
+      cameraLayout: currentSettings.cameraLayout || 'pip',
     });
 
     AudioRehearsalEngine.stop();
@@ -167,10 +169,10 @@ export const usePrompterLogic = () => {
         !!getSharedCameraStream()?.getVideoTracks().some((t) => t.readyState === 'live') ||
         !!getReadyAvStream();
 
-      if (settings.countdownSeconds > 0 && playbackStatus === 'idle') {
+      if (currentSettings.countdownSeconds > 0 && playbackStatus === 'idle') {
         clearCountdown();
         store.setPlaybackStatus('countdown');
-        let currentCount = settings.countdownSeconds;
+        let currentCount = currentSettings.countdownSeconds;
         store.setCountdownNumber(currentCount);
 
         countdownIntervalRef.current = setInterval(() => {
@@ -192,8 +194,8 @@ export const usePrompterLogic = () => {
     })();
   }, [
     playbackStatus,
-    settings.countdownSeconds,
-    settings.cameraLayout,
+    currentSettings.countdownSeconds,
+    currentSettings.cameraLayout,
     clearCountdown,
     adoptAvPromise,
     beginPlayAndRecord,
@@ -221,18 +223,18 @@ export const usePrompterLogic = () => {
   const handleNudgeForward = useCallback(() => {
     const canvasScroller = document.querySelector('.no-scrollbar');
     if (canvasScroller) {
-      const jumpPx = (settings.fontSize * settings.lineHeight * 6);
+      const jumpPx = (currentSettings.fontSize * currentSettings.lineHeight * 6);
       canvasScroller.scrollBy({ top: jumpPx, behavior: 'smooth' });
     }
-  }, [settings.fontSize, settings.lineHeight]);
+  }, [currentSettings.fontSize, currentSettings.lineHeight]);
 
   const handleNudgeBackward = useCallback(() => {
     const canvasScroller = document.querySelector('.no-scrollbar');
     if (canvasScroller) {
-      const jumpPx = (settings.fontSize * settings.lineHeight * 6);
+      const jumpPx = (currentSettings.fontSize * currentSettings.lineHeight * 6);
       canvasScroller.scrollBy({ top: -jumpPx, behavior: 'smooth' });
     }
-  }, [settings.fontSize, settings.lineHeight]);
+  }, [currentSettings.fontSize, currentSettings.lineHeight]);
 
   const handleToggleAudioRehearsal = useCallback(() => {
     if (isAudioRehearsing) {
@@ -243,12 +245,12 @@ export const usePrompterLogic = () => {
       store.setIsAudioRehearsing(true);
       AudioRehearsalEngine.speak(
         activeScript.content,
-        settings.wpm,
+        currentSettings.wpm,
         undefined,
         () => store.setIsAudioRehearsing(false)
       );
     }
-  }, [isAudioRehearsing, activeScript, settings.wpm, store]);
+  }, [isAudioRehearsing, activeScript, currentSettings.wpm, store]);
 
   const handleToggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {

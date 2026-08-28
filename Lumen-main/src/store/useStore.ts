@@ -8,9 +8,6 @@ import {
 } from '../types';
 import { PRESET_SCRIPTS } from '../data/presetScripts';
 
-const STORAGE_KEY_SCRIPTS = 'lumen_teleprompter_scripts_v1';
-const STORAGE_KEY_SETTINGS = 'lumen_teleprompter_settings_v1';
-
 export const DEFAULT_SETTINGS: PrompterSettings = {
   wpm: 135,
   fontSize: 48,
@@ -125,10 +122,10 @@ export const useStore = create<AppState>()(
       isMobileMoreOpen: false,
 
       // Actions
-      setScripts: (scripts) => set({ scripts }),
+      setScripts: (scripts) => set({ scripts: scripts || [] }),
       setActiveScriptId: (id) => set({ activeScriptId: id }),
       updateSettings: (newSettings) => set((state) => ({
-        settings: { ...state.settings, ...newSettings }
+        settings: { ...(state.settings || DEFAULT_SETTINGS), ...newSettings }
       })),
       setMode: (mode) => set({ mode }),
       setMobileScreen: (screen) => set({ mobileScreen: screen }),
@@ -153,13 +150,14 @@ export const useStore = create<AppState>()(
 
       // Script Actions
       updateScript: (updatedScript) => set((state) => ({
-        scripts: state.scripts.map((s) => (s.id === updatedScript.id ? updatedScript : s))
+        scripts: (state.scripts || []).map((s) => (s.id === updatedScript.id ? updatedScript : s))
       })),
       createScript: () => {
         const { scripts } = get();
+        const scriptsList = scripts || [];
         const newScript: Script = {
           id: `script-${Date.now()}`,
-          title: `Nuevo Guión ${scripts.length + 1}`,
+          title: `Nuevo Guión ${scriptsList.length + 1}`,
           category: 'General',
           targetWPM: 135,
           content: `[MIRAR FIJAMENTE A CÁMARA]\nHola a todos. Bienvenidos a esta sesión.\n\n[PAUSA 2s]\nEscribe aquí tu discurso...`,
@@ -167,14 +165,15 @@ export const useStore = create<AppState>()(
           updatedAt: new Date().toISOString(),
         };
         set((state) => ({
-          scripts: [newScript, ...state.scripts],
+          scripts: [newScript, ...(state.scripts || [])],
           activeScriptId: newScript.id
         }));
       },
       deleteScript: (id) => {
         const { scripts } = get();
-        if (scripts.length <= 1) return;
-        const remaining = scripts.filter((s) => s.id !== id);
+        const scriptsList = scripts || [];
+        if (scriptsList.length <= 1) return;
+        const remaining = scriptsList.filter((s) => s.id !== id);
         set({
           scripts: remaining,
           activeScriptId: remaining[0].id
@@ -189,12 +188,12 @@ export const useStore = create<AppState>()(
           updatedAt: new Date().toISOString(),
         };
         set((state) => ({
-          scripts: [cloned, ...state.scripts],
+          scripts: [cloned, ...(state.scripts || [])],
           activeScriptId: cloned.id
         }));
       },
       addScript: (script) => set((state) => ({
-        scripts: [script, ...state.scripts],
+        scripts: [script, ...(state.scripts || [])],
         activeScriptId: script.id
       }))
     }),
@@ -208,7 +207,10 @@ export const useStore = create<AppState>()(
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          // Replicar lógica de inicialización de App.tsx
+          // Safety checks after hydration
+          if (!state.settings) state.settings = DEFAULT_SETTINGS;
+          if (!state.scripts) state.scripts = PRESET_SCRIPTS;
+
           state.settings.speechTracking = false;
           state.settings.cameraOverlay = true;
         }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useStore } from './store/useStore';
+import { useStore, DEFAULT_SETTINGS } from './store/useStore';
 import { HeaderNav } from './components/HeaderNav';
 import { StudioEditor } from './components/StudioEditor';
 import { PrompterCanvas } from './components/PrompterCanvas';
@@ -14,11 +14,11 @@ import { beginAvCaptureFromUserGesture, isMobileDevice } from './utils/recording
 export default function App() {
   const store = useStore();
 
-  // Destructure store actions and state
+  // Destructure store actions and state with safety
   const {
     scripts = [],
     activeScriptId = '',
-    settings,
+    settings = DEFAULT_SETTINGS,
     mode = 'studio',
     mobileScreen = 'editor',
     playbackStatus = 'idle',
@@ -86,9 +86,10 @@ export default function App() {
     handleToggleRecord,
   });
 
-  // Safe checks for active script
+  // Safe checks for active script and settings
   const content = activeScript?.content || '';
   const scriptTitle = activeScript?.title || 'Sin Título';
+  const currentSettings = settings || DEFAULT_SETTINGS;
 
   return (
     <div className="w-screen h-[100dvh] flex flex-col bg-[#F9F7F2] text-[#121212] overflow-hidden select-none font-sans">
@@ -103,7 +104,7 @@ export default function App() {
           if (m === 'camera') {
             updateSettings({
               cameraOverlay: true,
-              cameraLayout: settings.cameraLayout || 'pip',
+              cameraLayout: currentSettings.cameraLayout || 'pip',
             });
           }
         }}
@@ -111,11 +112,11 @@ export default function App() {
         onTogglePlay={handleTogglePlay}
         isFullscreen={isFullscreen}
         onToggleFullscreen={handleToggleFullscreen}
-        isMirrorX={settings.mirrorX}
-        onToggleMirrorX={() => updateSettings({ mirrorX: !settings.mirrorX })}
-        isCameraActive={settings.cameraOverlay || mode === 'camera'}
-        onToggleCamera={() => updateSettings({ cameraOverlay: !settings.cameraOverlay })}
-        isVoiceActive={settings.speechTracking}
+        isMirrorX={!!currentSettings.mirrorX}
+        onToggleMirrorX={() => updateSettings({ mirrorX: !currentSettings.mirrorX })}
+        isCameraActive={!!currentSettings.cameraOverlay || mode === 'camera'}
+        onToggleCamera={() => updateSettings({ cameraOverlay: !currentSettings.cameraOverlay })}
+        isVoiceActive={!!currentSettings.speechTracking}
         onToggleVoice={handleToggleVoice}
         onOpenAIModal={() => setAIOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
@@ -126,7 +127,7 @@ export default function App() {
         onToggleAudioRehearsal={handleToggleAudioRehearsal}
         isAudioRehearsing={isAudioRehearsing}
         activeScriptTitle={scriptTitle}
-        wpm={settings.wpm}
+        wpm={currentSettings.wpm}
         onUpdateWpm={(newWpm) => updateSettings({ wpm: newWpm })}
         onUpdateSettings={updateSettings}
         isRecording={isRecording}
@@ -170,7 +171,7 @@ export default function App() {
         }`}>
           <PrompterCanvas
             content={content}
-            settings={settings}
+            settings={currentSettings}
             playbackStatus={playbackStatus}
             onTogglePlay={handleTogglePlay}
             onRestart={handleRestart}
@@ -182,8 +183,8 @@ export default function App() {
               setMode('studio');
             }}
             isMirrorMode={mode === 'mirror'}
-            cameraActive={mode === 'camera' || settings.cameraOverlay}
-            speechTracking={settings.speechTracking}
+            cameraActive={mode === 'camera' || !!currentSettings.cameraOverlay}
+            speechTracking={!!currentSettings.speechTracking}
             voiceProgress={voiceProgressRatio}
             voiceWordIndex={voiceWordIndex}
             voiceMatchedWord={lastVoiceWord}
@@ -214,7 +215,7 @@ export default function App() {
       {(mobileScreen === 'prompter' || mode !== 'studio') && (
         <div className="hidden md:block">
           <ControlOverlay
-            settings={settings}
+            settings={currentSettings}
             onUpdateSettings={updateSettings}
             playbackStatus={playbackStatus}
             onTogglePlay={handleTogglePlay}
@@ -224,22 +225,22 @@ export default function App() {
             elapsedSeconds={elapsedSeconds}
             totalEstimatedSeconds={totalEstimatedSeconds}
             wordCount={wordCount}
-            isVoiceActive={settings.speechTracking}
+            isVoiceActive={!!currentSettings.speechTracking}
             onToggleVoice={handleToggleVoice}
-            isCameraActive={settings.cameraOverlay || mode === 'camera'}
+            isCameraActive={!!currentSettings.cameraOverlay || mode === 'camera'}
             onToggleCamera={() => {
-              const turningOn = !settings.cameraOverlay;
+              const turningOn = !currentSettings.cameraOverlay;
               if (turningOn && isMobileDevice()) {
                 const avPromise = beginAvCaptureFromUserGesture();
                 void adoptAvPromise(avPromise).then((ok) => {
                   if (!ok) return;
-                  updateSettings({ cameraOverlay: true, cameraLayout: settings.cameraLayout || 'pip' });
+                  updateSettings({ cameraOverlay: true, cameraLayout: currentSettings.cameraLayout || 'pip' });
                 });
                 return;
               }
-              updateSettings({ cameraOverlay: !settings.cameraOverlay, cameraLayout: settings.cameraLayout || 'pip' });
+              updateSettings({ cameraOverlay: !currentSettings.cameraOverlay, cameraLayout: currentSettings.cameraLayout || 'pip' });
             }}
-            isMirrorActive={mode === 'mirror' || settings.mirrorX}
+            isMirrorActive={mode === 'mirror' || !!currentSettings.mirrorX}
             onToggleMirror={() => {
               if (mode === 'mirror') {
                 setMode('fullscreen');
@@ -264,7 +265,7 @@ export default function App() {
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex flex-col safe-bottom bg-[#F9F7F2]">
         {(mobileScreen === 'prompter' || mode !== 'studio') && (
           <ControlOverlay
-            settings={settings}
+            settings={currentSettings}
             onUpdateSettings={updateSettings}
             playbackStatus={playbackStatus}
             onTogglePlay={handleTogglePlay}
@@ -274,11 +275,11 @@ export default function App() {
             elapsedSeconds={elapsedSeconds}
             totalEstimatedSeconds={totalEstimatedSeconds}
             wordCount={wordCount}
-            isVoiceActive={settings.speechTracking}
+            isVoiceActive={!!currentSettings.speechTracking}
             onToggleVoice={handleToggleVoice}
-            isCameraActive={settings.cameraOverlay || mode === 'camera'}
+            isCameraActive={!!currentSettings.cameraOverlay || mode === 'camera'}
             onToggleCamera={() => {
-              const turningOn = !settings.cameraOverlay;
+              const turningOn = !currentSettings.cameraOverlay;
               if (turningOn && isMobileDevice()) {
                 const avPromise = beginAvCaptureFromUserGesture();
                 void adoptAvPromise(avPromise).then((ok) => {
@@ -287,9 +288,9 @@ export default function App() {
                 });
                 return;
               }
-              updateSettings({ cameraOverlay: !settings.cameraOverlay, cameraLayout: 'pip' });
+              updateSettings({ cameraOverlay: !currentSettings.cameraOverlay, cameraLayout: 'pip' });
             }}
-            isMirrorActive={mode === 'mirror' || settings.mirrorX}
+            isMirrorActive={mode === 'mirror' || !!currentSettings.mirrorX}
             onToggleMirror={() => {
               if (mode === 'mirror') {
                 setMode('fullscreen');
@@ -315,7 +316,7 @@ export default function App() {
             if (s === 'prompter') {
               const av = beginAvCaptureFromUserGesture();
               void adoptAvPromise(av);
-              updateSettings({ cameraOverlay: true, cameraLayout: settings.cameraLayout || 'pip' });
+              updateSettings({ cameraOverlay: true, cameraLayout: currentSettings.cameraLayout || 'pip' });
             }
             setMobileScreen(s);
           }}
@@ -328,9 +329,9 @@ export default function App() {
       <MobileMoreSheet
         isOpen={isMobileMoreOpen}
         onClose={() => setMobileMoreOpen(false)}
-        isCameraActive={settings.cameraOverlay || mode === 'camera'}
+        isCameraActive={!!currentSettings.cameraOverlay || mode === 'camera'}
         onToggleCamera={() => {
-          const turningOn = !settings.cameraOverlay;
+          const turningOn = !currentSettings.cameraOverlay;
           if (turningOn) {
             const avPromise = beginAvCaptureFromUserGesture();
             void adoptAvPromise(avPromise).then((ok) => {
@@ -344,7 +345,7 @@ export default function App() {
           updateSettings({ cameraOverlay: false });
           setMode('fullscreen');
         }}
-        isMirrorActive={mode === 'mirror' || settings.mirrorX}
+        isMirrorActive={mode === 'mirror' || !!currentSettings.mirrorX}
         onToggleMirror={() => {
           if (mode === 'mirror') {
             setMode('fullscreen');
@@ -355,7 +356,7 @@ export default function App() {
             updateSettings({ mirrorX: true });
           }
         }}
-        isVoiceActive={settings.speechTracking}
+        isVoiceActive={!!currentSettings.speechTracking}
         onToggleVoice={handleToggleVoice}
         isRecording={isRecording}
         playbackStatus={playbackStatus}
@@ -367,11 +368,11 @@ export default function App() {
         onOpenAI={() => setAIOpen(true)}
         onOpenDonation={() => setDonationOpen(true)}
         cameraLayoutLabel={
-          settings.cameraLayout === 'side-by-side' ? 'Dividido' : settings.cameraLayout === 'background' ? 'Fondo' : 'Flotante'
+          currentSettings.cameraLayout === 'side-by-side' ? 'Dividido' : currentSettings.cameraLayout === 'background' ? 'Fondo' : 'Flotante'
         }
         onCycleCameraLayout={() => {
           const order: Array<'pip' | 'side-by-side' | 'background'> = ['pip', 'side-by-side', 'background'];
-          const idx = order.indexOf((settings.cameraLayout as any) || 'pip');
+          const idx = order.indexOf((currentSettings.cameraLayout as any) || 'pip');
           const next = order[(idx + 1) % order.length];
           updateSettings({ cameraLayout: next, cameraOverlay: true });
         }}
@@ -391,7 +392,7 @@ export default function App() {
       )}
 
       {/* Voice status / banners */}
-      {(voiceBanner || (settings.speechTracking && !isRecording)) && (
+      {(voiceBanner || (currentSettings.speechTracking && !isRecording)) && (
         <div className={`fixed left-1/2 -translate-x-1/2 z-[60] max-w-[92vw] px-2 ${isRecording ? 'top-[6.5rem]' : 'top-[3.75rem]'}`}>
           {voiceBanner ? (
             <button

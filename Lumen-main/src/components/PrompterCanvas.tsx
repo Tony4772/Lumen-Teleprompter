@@ -470,7 +470,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
         if (deltaX > 0) {
           // Swipe Right: Increase speed
           triggerHaptic(15);
-          onUpdateSettings({ wpm: Math.min(320, settings.wpm + 5) });
+          onUpdateSettings({ wpm: Math.min(600, settings.wpm + 5) });
         } else {
           // Swipe Left: Decrease speed
           triggerHaptic(15);
