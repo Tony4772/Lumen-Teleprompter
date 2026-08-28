@@ -106,7 +106,7 @@ export const useStore = create<AppState>()(
 
       // UI Initial State
       mode: 'studio',
-      mobileScreen: 'prompter',
+      mobileScreen: 'editor',
       playbackStatus: 'idle',
       isFullscreen: false,
       elapsedSeconds: 0,

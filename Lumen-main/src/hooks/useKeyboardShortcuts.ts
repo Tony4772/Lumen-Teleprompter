@@ -36,7 +36,7 @@ export const useKeyboardShortcuts = (actions: ShortcutActions) => {
         actions.handleTogglePlay();
       } else if (e.code === 'ArrowUp') {
         e.preventDefault();
-        updateSettings({ wpm: Math.min(320, store.settings.wpm + 5) });
+        updateSettings({ wpm: Math.min(600, store.settings.wpm + 5) });
       } else if (e.code === 'ArrowDown') {
         e.preventDefault();
         updateSettings({ wpm: Math.max(10, store.settings.wpm - 5) });

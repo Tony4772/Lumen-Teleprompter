@@ -68,6 +68,7 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
 }) => {
   const isPlaying = playbackStatus === 'playing';
   const [showMobileSpeed, setShowMobileSpeed] = useState(false);
+  const [showMobileFont, setShowMobileFont] = useState(false);
 
   const formatRecTime = (sec: number) => {
     const mins = Math.floor(sec / 60);
@@ -91,7 +92,7 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
       {/* ——— MOBILE: one clean row ——— */}
       <div className="md:hidden flex flex-col gap-2">
         {showMobileSpeed && (
-          <div className="flex items-center gap-2 px-1 py-1">
+          <div className="flex items-center gap-2 px-1 py-1 animate-in slide-in-from-bottom-2 duration-200">
             <Gauge className="w-4 h-4 text-[#121212] shrink-0" />
             <button
               type="button"
@@ -106,7 +107,7 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
             <input
               type="range"
               min="10"
-              max="320"
+              max="600"
               step="5"
               value={settings.wpm}
               onChange={(e) => onUpdateSettings({ wpm: Number(e.target.value) })}
@@ -116,13 +117,49 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
               type="button"
               onClick={() => {
                 triggerHaptic(15);
-                onUpdateSettings({ wpm: Math.min(320, settings.wpm + 5) });
+                onUpdateSettings({ wpm: Math.min(600, settings.wpm + 5) });
               }}
               className="w-9 h-9 rounded-full bg-white border border-[#E0DDD5] flex items-center justify-center active:scale-90"
             >
               <Plus className="w-4 h-4" />
             </button>
-            <span className="text-xs font-mono font-bold min-w-[52px] text-right">{settings.wpm}</span>
+            <span className="text-xs font-mono font-bold min-w-[52px] text-right">{settings.wpm} WPM</span>
+          </div>
+        )}
+
+        {showMobileFont && (
+          <div className="flex items-center gap-2 px-1 py-1 animate-in slide-in-from-bottom-2 duration-200">
+            <Type className="w-4 h-4 text-[#121212] shrink-0" />
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(15);
+                onUpdateSettings({ fontSize: Math.max(20, settings.fontSize - 2) });
+              }}
+              className="w-9 h-9 rounded-full bg-white border border-[#E0DDD5] flex items-center justify-center active:scale-90"
+            >
+              <Minus className="w-4 h-4" />
+            </button>
+            <input
+              type="range"
+              min="20"
+              max="120"
+              step="2"
+              value={settings.fontSize}
+              onChange={(e) => onUpdateSettings({ fontSize: Number(e.target.value) })}
+              className="flex-1 h-1.5 bg-[#D6D2C4] rounded-xs appearance-none accent-[#121212]"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(15);
+                onUpdateSettings({ fontSize: Math.min(120, settings.fontSize + 2) });
+              }}
+              className="w-9 h-9 rounded-full bg-white border border-[#E0DDD5] flex items-center justify-center active:scale-90"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+            <span className="text-xs font-mono font-bold min-w-[52px] text-right">{settings.fontSize}px</span>
           </div>
         )}
 
@@ -175,34 +212,14 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
             </span>
           </button>
 
-          <div className="h-11 px-1 rounded-full bg-white border border-[#E0DDD5] flex flex-col items-center justify-center min-w-[52px]">
-            <span className="text-[7px] font-bold uppercase text-[#888] leading-none">Cuenta</span>
-            <div className="flex items-center gap-0.5 mt-0.5">
-              {([3, 5, 10] as const).map((sec) => (
-                <button
-                  key={sec}
-                  type="button"
-                  onClick={() => {
-                    triggerHaptic(10);
-                    onUpdateSettings({ countdownSeconds: sec });
-                  }}
-                  className={`w-5 h-5 rounded-full text-[9px] font-mono font-bold ${
-                    settings.countdownSeconds === sec
-                      ? 'bg-[#121212] text-white'
-                      : 'bg-[#F4F1EA] text-[#666]'
-                  }`}
-                >
-                  {sec}
-                </button>
-              ))}
-            </div>
-          </div>
-
           <button
             type="button"
             onClick={() => {
               triggerHaptic(10);
-              setShowMobileSpeed((v) => !v);
+              setShowMobileSpeed((v) => {
+                if (!v) setShowMobileFont(false);
+                return !v;
+              });
             }}
             className={`h-11 px-2 rounded-full border flex flex-col items-center justify-center font-mono text-[10px] font-bold active:scale-95 min-w-[48px] ${
               showMobileSpeed
@@ -213,6 +230,26 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
           >
             <Gauge className="w-3.5 h-3.5" />
             <span>{settings.wpm}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic(10);
+              setShowMobileFont((v) => {
+                if (!v) setShowMobileSpeed(false);
+                return !v;
+              });
+            }}
+            className={`h-11 px-2 rounded-full border flex flex-col items-center justify-center font-mono text-[10px] font-bold active:scale-95 min-w-[48px] ${
+              showMobileFont
+                ? 'bg-[#121212] text-white border-[#121212]'
+                : 'bg-white text-[#121212] border-[#E0DDD5]'
+            }`}
+            title="Tamaño de Letra"
+          >
+            <Type className="w-3.5 h-3.5" />
+            <span>{settings.fontSize}</span>
           </button>
 
           <button
@@ -377,14 +414,14 @@ export const ControlOverlay: React.FC<ControlOverlayProps> = ({
                 <input
                   type="range"
                   min="10"
-                  max="320"
+                  max="600"
                   step="5"
                   value={settings.wpm}
                   onChange={(e) => onUpdateSettings({ wpm: Number(e.target.value) })}
                   className="flex-1 h-2 bg-[#D6D2C4] rounded-xs appearance-none cursor-pointer accent-[#121212]"
                 />
                 <button
-                  onClick={() => onUpdateSettings({ wpm: Math.min(320, settings.wpm + 5) })}
+                  onClick={() => onUpdateSettings({ wpm: Math.min(600, settings.wpm + 5) })}
                   className="w-5 h-5 rounded-xs bg-[#F4F1EA] hover:bg-[#121212] hover:text-white flex items-center justify-center"
                 >
                   <Plus className="w-3 h-3" />

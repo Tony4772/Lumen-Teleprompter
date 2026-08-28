@@ -262,7 +262,7 @@ Formatting rules for the teleprompter:
 4. Output ONLY the raw script text without markdown backticks or commentary so the user can immediately paste/load it onto the teleprompter.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.7-flash',
+        model: 'gemini-1.5-flash',
         contents: prompt,
       });
 
@@ -302,7 +302,7 @@ Formatting rules for the teleprompter:
       }
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.7-flash',
+        model: 'gemini-1.5-flash',
         contents: `${systemPrompt}\n\nOriginal Script:\n${script}\n\nReturn ONLY the revised script.`,
       });
 
