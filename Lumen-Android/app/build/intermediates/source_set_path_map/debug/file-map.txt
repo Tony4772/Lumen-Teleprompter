@@ -1,0 +1,64 @@
+pe.ebyzom.lumen.app-navigation-common-ktx-2.7.5-0 C:\Users\Usuario\.gradle\caches\transforms-3\05dbf0b3d9f4fb68d564375a252119d2\transformed\navigation-common-ktx-2.7.5\res
+pe.ebyzom.lumen.app-jetified-lifecycle-runtime-ktx-2.6.2-1 C:\Users\Usuario\.gradle\caches\transforms-3\0c6e542e2335f56ea6b8541e313776fe\transformed\jetified-lifecycle-runtime-ktx-2.6.2\res
+pe.ebyzom.lumen.app-jetified-customview-poolingcontainer-1.0.0-2 C:\Users\Usuario\.gradle\caches\transforms-3\0d89d9af9751ba2a138a13f2f29c5ff6\transformed\jetified-customview-poolingcontainer-1.0.0\res
+pe.ebyzom.lumen.app-jetified-material-release-3 C:\Users\Usuario\.gradle\caches\transforms-3\0f05edaf881b3258bb98b35ecdc8d28f\transformed\jetified-material-release\res
+pe.ebyzom.lumen.app-appcompat-1.1.0-4 C:\Users\Usuario\.gradle\caches\transforms-3\146ff34191d46570e33f1f21bf1e4a00\transformed\appcompat-1.1.0\res
+pe.ebyzom.lumen.app-jetified-camera-camera2-1.3.0-5 C:\Users\Usuario\.gradle\caches\transforms-3\161fb4fafb17bf5fba054355a84adb0d\transformed\jetified-camera-camera2-1.3.0\res
+pe.ebyzom.lumen.app-jetified-activity-ktx-1.8.1-6 C:\Users\Usuario\.gradle\caches\transforms-3\178f0ededa1eda57d1f542480529a09c\transformed\jetified-activity-ktx-1.8.1\res
+pe.ebyzom.lumen.app-jetified-camera-core-1.3.0-7 C:\Users\Usuario\.gradle\caches\transforms-3\1b420d68460306573b84570d830b9f31\transformed\jetified-camera-core-1.3.0\res
+pe.ebyzom.lumen.app-sqlite-framework-2.4.0-8 C:\Users\Usuario\.gradle\caches\transforms-3\1d90433d7a054f7cc2fab862a990a3fb\transformed\sqlite-framework-2.4.0\res
+pe.ebyzom.lumen.app-jetified-material-icons-core-release-9 C:\Users\Usuario\.gradle\caches\transforms-3\2067772beb5300a535b976768d2801a5\transformed\jetified-material-icons-core-release\res
+pe.ebyzom.lumen.app-room-runtime-2.6.1-10 C:\Users\Usuario\.gradle\caches\transforms-3\2404abd7bc198bcf478c75cf35831183\transformed\room-runtime-2.6.1\res
+pe.ebyzom.lumen.app-jetified-ui-test-manifest-1.5.4-11 C:\Users\Usuario\.gradle\caches\transforms-3\246cf5761d9ed5ed831f89a660ee7c3a\transformed\jetified-ui-test-manifest-1.5.4\res
+pe.ebyzom.lumen.app-jetified-savedstate-1.2.1-12 C:\Users\Usuario\.gradle\caches\transforms-3\2b2ce9028e3e03902bffd9b4c276ba97\transformed\jetified-savedstate-1.2.1\res
+pe.ebyzom.lumen.app-jetified-lifecycle-viewmodel-savedstate-2.6.2-13 C:\Users\Usuario\.gradle\caches\transforms-3\35e864f57b48d220177f3e388cbd572c\transformed\jetified-lifecycle-viewmodel-savedstate-2.6.2\res
+pe.ebyzom.lumen.app-jetified-runtime-saveable-release-14 C:\Users\Usuario\.gradle\caches\transforms-3\39bdaf29c1b9cabfbacf4d4ad3cb6900\transformed\jetified-runtime-saveable-release\res
+pe.ebyzom.lumen.app-jetified-ui-unit-release-15 C:\Users\Usuario\.gradle\caches\transforms-3\3c276d12fc7677afe8a4f5540e883f73\transformed\jetified-ui-unit-release\res
+pe.ebyzom.lumen.app-jetified-ui-tooling-data-release-16 C:\Users\Usuario\.gradle\caches\transforms-3\3d936f7e6a1f454c3b4896081c91041f\transformed\jetified-ui-tooling-data-release\res
+pe.ebyzom.lumen.app-lifecycle-livedata-2.6.2-17 C:\Users\Usuario\.gradle\caches\transforms-3\422ab8f6d532c7229d109e98ea4e7e00\transformed\lifecycle-livedata-2.6.2\res
+pe.ebyzom.lumen.app-jetified-appcompat-resources-1.1.0-18 C:\Users\Usuario\.gradle\caches\transforms-3\582e45077a88c29e434a83b6708cad80\transformed\jetified-appcompat-resources-1.1.0\res
+pe.ebyzom.lumen.app-jetified-camera-video-1.3.0-19 C:\Users\Usuario\.gradle\caches\transforms-3\59f4632fab61fb1fa9afbb8e8e2b816c\transformed\jetified-camera-video-1.3.0\res
+pe.ebyzom.lumen.app-jetified-foundation-layout-release-20 C:\Users\Usuario\.gradle\caches\transforms-3\655cdcc04ece596cbe5e1cec0bf6ff1f\transformed\jetified-foundation-layout-release\res
+pe.ebyzom.lumen.app-jetified-lifecycle-viewmodel-ktx-2.6.2-21 C:\Users\Usuario\.gradle\caches\transforms-3\6948c2ef21c98d45bcdad04f65c3af97\transformed\jetified-lifecycle-viewmodel-ktx-2.6.2\res
+pe.ebyzom.lumen.app-jetified-emoji2-1.4.0-22 C:\Users\Usuario\.gradle\caches\transforms-3\6c79be1b55f759cfd01fb0a8cb8dc9d6\transformed\jetified-emoji2-1.4.0\res
+pe.ebyzom.lumen.app-jetified-lifecycle-process-2.6.2-23 C:\Users\Usuario\.gradle\caches\transforms-3\6d80b008030754744e78dbe87e67f5cb\transformed\jetified-lifecycle-process-2.6.2\res
+pe.ebyzom.lumen.app-navigation-common-2.7.5-24 C:\Users\Usuario\.gradle\caches\transforms-3\72d2c30b258bfa2f89b5b814748013bf\transformed\navigation-common-2.7.5\res
+pe.ebyzom.lumen.app-jetified-material-ripple-release-25 C:\Users\Usuario\.gradle\caches\transforms-3\757959419aeb2b6734998d5dc4dacebd\transformed\jetified-material-ripple-release\res
+pe.ebyzom.lumen.app-jetified-ui-release-26 C:\Users\Usuario\.gradle\caches\transforms-3\7c384eef655935f03599b347144be2a5\transformed\jetified-ui-release\res
+pe.ebyzom.lumen.app-jetified-lifecycle-viewmodel-compose-2.6.2-27 C:\Users\Usuario\.gradle\caches\transforms-3\7c8c0b6f33709c8fc4c84ced2a9ad8ab\transformed\jetified-lifecycle-viewmodel-compose-2.6.2\res
+pe.ebyzom.lumen.app-jetified-navigation-compose-2.7.5-28 C:\Users\Usuario\.gradle\caches\transforms-3\82313edac1fb041e8f6fd9e9f8c29f7e\transformed\jetified-navigation-compose-2.7.5\res
+pe.ebyzom.lumen.app-sqlite-2.4.0-29 C:\Users\Usuario\.gradle\caches\transforms-3\83e499a50812947d6a9d3b9f1ddb1107\transformed\sqlite-2.4.0\res
+pe.ebyzom.lumen.app-core-1.12.0-30 C:\Users\Usuario\.gradle\caches\transforms-3\84c3588f43b37236265bdf45f00b2a42\transformed\core-1.12.0\res
+pe.ebyzom.lumen.app-jetified-savedstate-ktx-1.2.1-31 C:\Users\Usuario\.gradle\caches\transforms-3\8ed8b1992e425402bc9705646870caa1\transformed\jetified-savedstate-ktx-1.2.1\res
+pe.ebyzom.lumen.app-lifecycle-viewmodel-2.6.2-32 C:\Users\Usuario\.gradle\caches\transforms-3\953f0eed93efdb859838868526b907da\transformed\lifecycle-viewmodel-2.6.2\res
+pe.ebyzom.lumen.app-navigation-runtime-ktx-2.7.5-33 C:\Users\Usuario\.gradle\caches\transforms-3\98d275f956d4bc679a11d0c3e13aa4e6\transformed\navigation-runtime-ktx-2.7.5\res
+pe.ebyzom.lumen.app-jetified-runtime-release-34 C:\Users\Usuario\.gradle\caches\transforms-3\a4f8a0bc3743a1e16d72377b92221980\transformed\jetified-runtime-release\res
+pe.ebyzom.lumen.app-jetified-activity-compose-1.8.1-35 C:\Users\Usuario\.gradle\caches\transforms-3\a806d1a9ed372798d5d90646a3bd1569\transformed\jetified-activity-compose-1.8.1\res
+pe.ebyzom.lumen.app-jetified-ui-text-release-36 C:\Users\Usuario\.gradle\caches\transforms-3\a8be2fd66c3948f94ceafe4a85c7176b\transformed\jetified-ui-text-release\res
+pe.ebyzom.lumen.app-jetified-camera-view-1.3.0-37 C:\Users\Usuario\.gradle\caches\transforms-3\aa797b17ae271f502ac492e6c53b6971\transformed\jetified-camera-view-1.3.0\res
+pe.ebyzom.lumen.app-jetified-animation-release-38 C:\Users\Usuario\.gradle\caches\transforms-3\bf381dca3fbdbf4b3dc095b357e3a730\transformed\jetified-animation-release\res
+pe.ebyzom.lumen.app-jetified-ui-util-release-39 C:\Users\Usuario\.gradle\caches\transforms-3\bf7859ba1e37ff0c39de6eee78ab84fb\transformed\jetified-ui-util-release\res
+pe.ebyzom.lumen.app-jetified-annotation-experimental-1.3.1-40 C:\Users\Usuario\.gradle\caches\transforms-3\c3b5455b445f05732836a840c3f4c98b\transformed\jetified-annotation-experimental-1.3.1\res
+pe.ebyzom.lumen.app-jetified-animation-core-release-41 C:\Users\Usuario\.gradle\caches\transforms-3\c3ea4deb06f9797dfc2ceb3a37670362\transformed\jetified-animation-core-release\res
+pe.ebyzom.lumen.app-jetified-core-ktx-1.12.0-42 C:\Users\Usuario\.gradle\caches\transforms-3\c605f34eab80fdac4bca026b28e3fdb2\transformed\jetified-core-ktx-1.12.0\res
+pe.ebyzom.lumen.app-lifecycle-livedata-core-2.6.2-43 C:\Users\Usuario\.gradle\caches\transforms-3\c62afec7599be15b4bcc1fc22f08f2b4\transformed\lifecycle-livedata-core-2.6.2\res
+pe.ebyzom.lumen.app-jetified-activity-1.8.1-44 C:\Users\Usuario\.gradle\caches\transforms-3\ca21650c9b81ab15abcb78513fa27dec\transformed\jetified-activity-1.8.1\res
+pe.ebyzom.lumen.app-lifecycle-runtime-2.6.2-45 C:\Users\Usuario\.gradle\caches\transforms-3\cb102fee0207dc4b4d8cf98f8cceb8bf\transformed\lifecycle-runtime-2.6.2\res
+pe.ebyzom.lumen.app-jetified-ui-graphics-release-46 C:\Users\Usuario\.gradle\caches\transforms-3\cec8d0896198872d35e882d2c4f33b78\transformed\jetified-ui-graphics-release\res
+pe.ebyzom.lumen.app-jetified-ui-tooling-preview-release-47 C:\Users\Usuario\.gradle\caches\transforms-3\d1a1b6d3634192e208bdfa59012b09fa\transformed\jetified-ui-tooling-preview-release\res
+pe.ebyzom.lumen.app-jetified-room-ktx-2.6.1-48 C:\Users\Usuario\.gradle\caches\transforms-3\d2167a0d6f2206c07af3d0f8b986fb87\transformed\jetified-room-ktx-2.6.1\res
+pe.ebyzom.lumen.app-jetified-startup-runtime-1.1.1-49 C:\Users\Usuario\.gradle\caches\transforms-3\d36f88900405bb56f98aa891740f52d5\transformed\jetified-startup-runtime-1.1.1\res
+pe.ebyzom.lumen.app-jetified-camera-lifecycle-1.3.0-50 C:\Users\Usuario\.gradle\caches\transforms-3\da2042b925d2f1ef28c97cde4b450bf2\transformed\jetified-camera-lifecycle-1.3.0\res
+pe.ebyzom.lumen.app-navigation-runtime-2.7.5-51 C:\Users\Usuario\.gradle\caches\transforms-3\e5420572e875790cec4099532ec46119\transformed\navigation-runtime-2.7.5\res
+pe.ebyzom.lumen.app-core-runtime-2.2.0-52 C:\Users\Usuario\.gradle\caches\transforms-3\e753b0eaf4cd91d146e27b940d43bcaf\transformed\core-runtime-2.2.0\res
+pe.ebyzom.lumen.app-jetified-material3-1.1.2-53 C:\Users\Usuario\.gradle\caches\transforms-3\e877e21c5639ba5f65a6a0e4c6f6bd48\transformed\jetified-material3-1.1.2\res
+pe.ebyzom.lumen.app-jetified-profileinstaller-1.3.0-54 C:\Users\Usuario\.gradle\caches\transforms-3\fad87618e22f1eceeffd281198d546f1\transformed\jetified-profileinstaller-1.3.0\res
+pe.ebyzom.lumen.app-jetified-ui-tooling-release-55 C:\Users\Usuario\.gradle\caches\transforms-3\fb0c5f0ee795ae7ae99189ee82b7086d\transformed\jetified-ui-tooling-release\res
+pe.ebyzom.lumen.app-jetified-foundation-release-56 C:\Users\Usuario\.gradle\caches\transforms-3\fe1ad178637a220b00906422bc4c3631\transformed\jetified-foundation-release\res
+pe.ebyzom.lumen.app-jetified-ui-geometry-release-57 C:\Users\Usuario\.gradle\caches\transforms-3\ffbe3efbd7bca2633f92708f2577884f\transformed\jetified-ui-geometry-release\res
+pe.ebyzom.lumen.app-resValues-58 D:\AndroidStudioProjects\Lumen Teleprompter\Lumen-Android\app\build\generated\res\resValues\debug
+pe.ebyzom.lumen.app-packageDebugResources-59 D:\AndroidStudioProjects\Lumen Teleprompter\Lumen-Android\app\build\intermediates\incremental\debug\packageDebugResources\merged.dir
+pe.ebyzom.lumen.app-packageDebugResources-60 D:\AndroidStudioProjects\Lumen Teleprompter\Lumen-Android\app\build\intermediates\incremental\debug\packageDebugResources\stripped.dir
+pe.ebyzom.lumen.app-merged_res-61 D:\AndroidStudioProjects\Lumen Teleprompter\Lumen-Android\app\build\intermediates\merged_res\debug
+pe.ebyzom.lumen.app-debug-62 D:\AndroidStudioProjects\Lumen Teleprompter\Lumen-Android\app\src\debug\res
+pe.ebyzom.lumen.app-main-63 D:\AndroidStudioProjects\Lumen Teleprompter\Lumen-Android\app\src\main\res

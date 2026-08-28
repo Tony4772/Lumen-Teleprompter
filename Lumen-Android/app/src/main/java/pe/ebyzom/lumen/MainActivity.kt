@@ -3,6 +3,7 @@ package pe.ebyzom.lumen
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -14,19 +15,25 @@ import pe.ebyzom.lumen.data.repository.ScriptRepository
 import pe.ebyzom.lumen.navigation.NavGraph
 import pe.ebyzom.lumen.ui.theme.LumenTeleprompterTheme
 import pe.ebyzom.lumen.viewmodel.ScriptViewModel
+import pe.ebyzom.lumen.viewmodel.ScriptViewModelFactory
 
 class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        
-        // Inicialización de la base de datos (En una app real esto iría en una clase Application o Hilt)
-        val db = Room.databaseBuilder(
+
+    private val db by lazy {
+        Room.databaseBuilder(
             applicationContext,
             AppDatabase::class.java, "lumen-db"
-        ).build()
-        
-        val repository = ScriptRepository(db.scriptDao())
-        val viewModel = ScriptViewModel(repository)
+        ).fallbackToDestructiveMigration().build()
+    }
+
+    private val repository by lazy { ScriptRepository(db.scriptDao()) }
+
+    private val viewModel: ScriptViewModel by viewModels {
+        ScriptViewModelFactory(repository)
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
 
         setContent {
             LumenTeleprompterTheme {

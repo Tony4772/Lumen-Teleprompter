@@ -10,7 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import pe.ebyzom.lumen.viewmodel.ScriptViewModel
 
-@OptIn(Material3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScriptEditorScreen(
     viewModel: ScriptViewModel,
@@ -73,12 +73,11 @@ fun ScriptEditorScreen(
                 value = content,
                 onValueChange = { content = it },
                 label = { Text("Contenido del guión") },
-                modifier = Modifier.fillWeight(1f).fillMaxWidth(),
+                modifier = Modifier.weight(1f).fillMaxWidth(),
                 maxLines = Int.MAX_VALUE
             )
         }
     }
 }
 
-// Extensión temporal para facilitar el layout
-fun Modifier.fillWeight(weight: Float): Modifier = this.then(Modifier.weight(weight))
+

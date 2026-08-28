@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.LumenTeleprompter" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:statusBarColor">#F9F7F2</item>
+        <item name="android:windowBackground">@color/lumen_bg</item>
+        <item name="android:statusBarColor">@color/lumen_bg</item>
         <item name="android:windowLightStatusBar">true</item>
     </style>
 </resources>

@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.sp
 import pe.ebyzom.lumen.model.Script
 import pe.ebyzom.lumen.viewmodel.ScriptViewModel
 
-@OptIn(Material3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScriptListScreen(
     viewModel: ScriptViewModel,
@@ -51,7 +51,7 @@ fun ScriptListScreen(
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.dp(12.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(scripts) { script ->
                     ScriptItem(
