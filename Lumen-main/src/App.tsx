@@ -170,11 +170,12 @@ export default function App() {
     setVoiceWordIndex(wordIndex);
   }, []);
 
-  const { isListening, lastTranscript, error: voiceError, resetVoiceTracking } = useSpeechFollower({
+  const { isListening, lastTranscript, error: voiceError, resetVoiceTracking, startFromUserGesture } = useSpeechFollower({
     enabled: settings.speechTracking,
     scriptContent: activeScript?.content || '',
     onMatchProgress: handleVoiceProgress,
-    suspended: isRecording || playbackStatus === 'countdown' || playbackStatus === 'playing',
+    // Solo pausar ASR durante grabación o cuenta atrás (no durante "playing": en modo Voz no usa WPM)
+    suspended: isRecording || playbackStatus === 'countdown',
     onPermissionDenied: () => {
       setSettings((prev) => ({ ...prev, speechTracking: false }));
     },
@@ -186,28 +187,17 @@ export default function App() {
   });
 
   const handleToggleVoice = useCallback(() => {
-    setSettings((s) => {
-      const next = !s.speechTracking;
-      if (next) {
-        // En iPhone no activamos el flag: mensaje amigable sin “ve a Chrome”
-        const isIPhone =
-          /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
-          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        if (isIPhone) {
-          setVoiceBanner(
-            'En iPhone el modo Voz no está disponible. Usa Iniciar y ajusta la velocidad (WPM).'
-          );
-          window.setTimeout(() => setVoiceBanner(null), 6000);
-          return s;
-        }
-        setVoiceBanner('Voz ON — habla el texto y el teleprompter avanzará');
-        window.setTimeout(() => setVoiceBanner(null), 3500);
-      } else {
-        setVoiceBanner(null);
-      }
-      return { ...s, speechTracking: next };
-    });
-  }, []);
+    if (settings.speechTracking) {
+      setVoiceBanner(null);
+      setSettings((s) => ({ ...s, speechTracking: false }));
+      return;
+    }
+    setVoiceBanner('Voz ON — habla el texto y el teleprompter avanzará');
+    window.setTimeout(() => setVoiceBanner(null), 3500);
+    setSettings((s) => ({ ...s, speechTracking: true }));
+    // Mismo gesto del toque (iOS exige esto para abrir el mic de reconocimiento)
+    startFromUserGesture();
+  }, [settings.speechTracking, startFromUserGesture]);
 
   // When enabling voice tracking, pause WPM auto-scroll so the mic drives movement
   useEffect(() => {

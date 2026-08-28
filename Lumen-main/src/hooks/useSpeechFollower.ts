@@ -142,22 +142,12 @@ export function useSpeechFollower({
       return;
     }
 
-    // En iPhone (Safari/Chrome) el reconocimiento continuo de voz del navegador
-    // no es fiable: no pedimos “ve a ajustes de Chrome”.
-    if (isAppleTouchDevice()) {
-      const msg =
-        'En iPhone el modo Voz no está disponible aún. Usa Iniciar: el texto avanza solo (ajusta la velocidad WPM).';
-      setError(msg);
-      onUnsupportedRef.current?.(msg);
-      return;
-    }
-
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
       const msg =
-        'Este navegador no soporta seguimiento por voz. Prueba Chrome en Android o en el computador.';
+        'Este navegador no soporta seguimiento por voz. Prueba Safari o Chrome actualizado.';
       setError(msg);
       onUnsupportedRef.current?.(msg);
       return;
@@ -180,7 +170,9 @@ export function useSpeechFollower({
     }
 
     const recognition = new SpeechRecognition();
-    const isMobile = /Android/i.test(navigator.userAgent);
+    const isMobile =
+      isAppleTouchDevice() || /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    // iOS/Android: sesiones cortas; onend reinicia el listener
     recognition.continuous = !isMobile;
     recognition.interimResults = true;
     recognition.lang = 'es-ES';
@@ -291,6 +283,13 @@ export function useSpeechFollower({
 
   startListeningRef.current = startListening;
 
+  /** Llamar SÍNCRONO en el onClick de Voz (iOS exige gesto del usuario). */
+  const startFromUserGesture = useCallback(() => {
+    enabledRef.current = true;
+    notAllowedRetriesRef.current = 0;
+    startListening();
+  }, [startListening]);
+
   const resetVoiceTracking = useCallback(() => {
     currentWordPointerRef.current = 0;
     setRecognizedWordsCount(0);
@@ -300,19 +299,27 @@ export function useSpeechFollower({
 
   useEffect(() => {
     if (enabled && !suspended) {
-      if (isAppleTouchDevice()) {
+      if (!isSpeechRecognitionAvailable()) {
         const msg =
-          'En iPhone el modo Voz no está disponible aún. Usa Iniciar: el texto avanza solo (ajusta WPM).';
+          'Este navegador no soporta seguimiento por voz. Prueba Safari o Chrome actualizado.';
         setError(msg);
         onUnsupportedRef.current?.(msg);
         return;
       }
-      if (!isSpeechRecognitionAvailable()) {
-        const msg =
-          'Este navegador no soporta seguimiento por voz. Prueba Chrome en Android o en el computador.';
-        setError(msg);
-        onUnsupportedRef.current?.(msg);
-        return;
+      // iOS: primer arranque desde el botón Voz; tras countdown/grabación reintentar
+      if (isAppleTouchDevice()) {
+        if (!suspended) {
+          const t = window.setTimeout(() => {
+            if (enabledRef.current && !suspendedRef.current && !recognitionRef.current) {
+              startListening();
+            }
+          }, 250);
+          return () => {
+            window.clearTimeout(t);
+            stopListening();
+          };
+        }
+        return () => stopListening();
       }
       notAllowedRetriesRef.current = 0;
       const t = window.setTimeout(() => {
@@ -339,5 +346,6 @@ export function useSpeechFollower({
     totalWordsCount: scriptWordsRef.current.length,
     error,
     resetVoiceTracking,
+    startFromUserGesture,
   };
 }
