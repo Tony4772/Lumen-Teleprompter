@@ -1040,7 +1040,7 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   triggerHaptic(15);
-                  onUpdateSettings({ wpm: Math.min(320, settings.wpm + 5) });
+                  onUpdateSettings({ wpm: Math.min(600, settings.wpm + 5) });
                 }}
                 className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/30 text-white flex items-center justify-center font-bold text-xs active:scale-90 transition-colors"
                 title="Aumentar velocidad (+5 WPM)"
@@ -1091,16 +1091,16 @@ export const PrompterCanvas: React.FC<PrompterCanvasProps> = ({
             <input
               type="range"
               min="10"
-              max="320"
+              max="600"
               step="5"
               value={settings.wpm}
               onChange={(e) => onUpdateSettings({ wpm: Number(e.target.value) })}
               className="w-full h-2 bg-white/20 rounded-xs appearance-none cursor-pointer accent-amber-400"
             />
             <div className="flex justify-between text-[9px] font-mono text-[#888]">
-              <span>10 WPM (Ultra Lento)</span>
-              <span>120 WPM (Normal)</span>
-              <span>320 WPM (Rápido)</span>
+              <span>10 WPM (Lento)</span>
+              <span>130 WPM (Normal)</span>
+              <span>600 WPM (Máx)</span>
             </div>
           </div>
 

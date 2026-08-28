@@ -13,19 +13,21 @@ import { beginAvCaptureFromUserGesture, isMobileDevice } from './utils/recording
 
 export default function App() {
   const store = useStore();
+
+  // Destructure store actions and state
   const {
-    scripts,
-    activeScriptId,
+    scripts = [],
+    activeScriptId = '',
     settings,
-    mode,
-    mobileScreen,
-    playbackStatus,
-    isFullscreen,
-    elapsedSeconds,
-    countdownNumber,
-    isAudioRehearsing,
-    voiceBanner,
-    isMobileMoreOpen,
+    mode = 'studio',
+    mobileScreen = 'editor',
+    playbackStatus = 'idle',
+    isFullscreen = false,
+    elapsedSeconds = 0,
+    countdownNumber = null,
+    isAudioRehearsing = false,
+    voiceBanner = null,
+    isMobileMoreOpen = false,
     setActiveScriptId,
     updateSettings,
     setMode,
@@ -40,15 +42,17 @@ export default function App() {
     setRecordingModalOpen,
   } = store;
 
+  // Get prompter logic and recorder
+  const logic = usePrompterLogic();
   const {
     activeScript,
-    wordCount,
-    totalEstimatedSeconds,
+    wordCount = 0,
+    totalEstimatedSeconds = 0,
     recorder,
     speechFollower,
-    voiceProgressRatio,
-    voiceWordIndex,
-    lastVoiceWord,
+    voiceProgressRatio = 0,
+    voiceWordIndex = 0,
+    lastVoiceWord = '',
     handleToggleVoice,
     handleTogglePlay,
     handleRestart,
@@ -57,20 +61,21 @@ export default function App() {
     handleToggleAudioRehearsal,
     handleToggleFullscreen,
     handleToggleRecord,
-  } = usePrompterLogic();
+  } = logic;
 
   const {
-    isRecording,
-    recordingSeconds,
-    latestTake,
-    takesHistory,
+    isRecording = false,
+    recordingSeconds = 0,
+    latestTake = null,
+    takesHistory = [],
     adoptAvPromise,
     deleteTakeFromHistory,
     clearAllTakes,
   } = recorder;
 
-  const { isListening, error: voiceError, lastTranscript } = speechFollower;
+  const { isListening = false, error: voiceError = null, lastTranscript = '' } = speechFollower;
 
+  // Setup keyboard shortcuts
   useKeyboardShortcuts({
     handleTogglePlay,
     handleRestart,
@@ -80,6 +85,10 @@ export default function App() {
     handleToggleVoice,
     handleToggleRecord,
   });
+
+  // Safe checks for active script
+  const content = activeScript?.content || '';
+  const scriptTitle = activeScript?.title || 'Sin Título';
 
   return (
     <div className="w-screen h-[100dvh] flex flex-col bg-[#F9F7F2] text-[#121212] overflow-hidden select-none font-sans">
@@ -116,7 +125,7 @@ export default function App() {
         onOpenDonation={() => setDonationOpen(true)}
         onToggleAudioRehearsal={handleToggleAudioRehearsal}
         isAudioRehearsing={isAudioRehearsing}
-        activeScriptTitle={activeScript?.title || 'Sin Título'}
+        activeScriptTitle={scriptTitle}
         wpm={settings.wpm}
         onUpdateWpm={(newWpm) => updateSettings({ wpm: newWpm })}
         onUpdateSettings={updateSettings}
@@ -129,14 +138,14 @@ export default function App() {
 
       {/* Main Workspace Area */}
       <main className={`flex-1 flex overflow-hidden relative md:pb-0 ${
-        mobileScreen === 'prompter' || mode !== 'studio' ? 'pb-[10.5rem]' : 'pb-[4.5rem]'
+        (mobileScreen === 'prompter' || mode !== 'studio') ? 'pb-[10.5rem]' : 'pb-[4.5rem]'
       }`}>
         
-        {/* Left Studio Editor Pane */}
+        {/* Left Studio Editor Pane (Studio Mode only) */}
         {mode === 'studio' && (
-          <aside className={`h-full shrink-0 border-r border-[#E0DDD5] z-10 flex flex-col ${
-            mode === 'studio' ? 'w-full md:w-[420px] lg:w-[480px]' : 'w-full'
-          } ${mobileScreen === 'prompter' ? 'hidden md:flex' : 'flex'}`}>
+          <aside className={`h-full shrink-0 border-r border-[#E0DDD5] z-10 flex flex-col w-full md:w-[420px] lg:w-[480px] ${
+            mobileScreen === 'prompter' ? 'hidden md:flex' : 'flex'
+          }`}>
             <StudioEditor
               scripts={scripts}
               activeScriptId={activeScriptId}
@@ -157,10 +166,10 @@ export default function App() {
 
         {/* Right Prompter Surface */}
         <section className={`flex-1 h-full relative overflow-hidden bg-black flex flex-col ${
-          mobileScreen === 'editor' && mode === 'studio' ? 'hidden md:flex' : 'flex'
+          (mobileScreen === 'editor' && mode === 'studio') ? 'hidden md:flex' : 'flex'
         }`}>
           <PrompterCanvas
-            content={activeScript?.content || ''}
+            content={content}
             settings={settings}
             playbackStatus={playbackStatus}
             onTogglePlay={handleTogglePlay}
