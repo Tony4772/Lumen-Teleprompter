@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Política de Privacidad - Lumen Teleprompter</title>
+    <style>
+        :root {
+            --primary: #121212;
+            --accent: #00F0FF;
+            --bg: #F9F9FB;
+            --card: #FFFFFF;
+            --text: #222222;
+            --muted: #666666;
+            --border: #E5E7EB;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            line-height: 1.65;
+            padding: 24px 16px;
+        }
+        .container {
+            max-width: 820px;
+            margin: 0 auto;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 40px 32px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+        }
+        header {
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 24px;
+            margin-bottom: 32px;
+        }
+        .badge {
+            display: inline-block;
+            background: var(--primary);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            padding: 6px 12px;
+            border-radius: 20px;
+            margin-bottom: 12px;
+        }
+        h1 {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+        .updated {
+            font-size: 14px;
+            color: var(--muted);
+        }
+        h2 {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-top: 32px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        h2::before {
+            content: "";
+            display: inline-block;
+            width: 4px;
+            height: 20px;
+            background: var(--accent);
+            border-radius: 2px;
+        }
+        p, ul {
+            margin-bottom: 16px;
+            color: #374151;
+            font-size: 15px;
+        }
+        ul {
+            padding-left: 24px;
+        }
+        li {
+            margin-bottom: 8px;
+        }
+        .highlight-box {
+            background: #F3F4F6;
+            border-left: 4px solid var(--primary);
+            padding: 16px 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+        .tag {
+            font-family: monospace;
+            background: #E5E7EB;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        a {
+            color: #2563EB;
+            text-decoration: underline;
+        }
+        footer {
+            margin-top: 48px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+            font-size: 13px;
+            color: var(--muted);
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <span class="badge">Privacidad y Seguridad</span>
+        <h1>Política de Privacidad</h1>
+        <div class="updated"><strong>Aplicación:</strong> Lumen Teleprompter & Video Studio (pe.ebyzom.lumen)</div>
+        <div class="updated"><strong>Última actualización:</strong> Septiembre de 2026</div>
+    </header>
+
+    <div class="highlight-box">
+        <strong>Resumen de Privacidad:</strong> Lumen Teleprompter fue diseñada con el principio de privacidad por diseño. Tus guiones, documentos de texto y videos grabados se procesan y almacenan <strong>100% de manera local en tu propio dispositivo</strong>. Nunca enviamos tus textos, grabaciones o videos a servidores externos.
+    </div>
+
+    <h2>1. Información General y Responsable</h2>
+    <p>
+        Esta Política de Privacidad describe el tratamiento de datos personales e información técnica en la aplicación móvil <strong>Lumen Teleprompter</strong> (en adelante, "la Aplicación").
+        Al utilizar la Aplicación, aceptas las prácticas descritas en este documento conforme a los estándares de Google Play Developer Program Policies.
+    </p>
+
+    <h2>2. Datos que Maneja la Aplicación</h2>
+
+    <h3>A. Guiones, Textos y Documentos Importados</h3>
+    <ul>
+        <li>Todos los guiones creados, editados o importados (.txt, .pdf, .docx) se almacenan localmente en la base de datos interna de tu dispositivo mediante SQLite / Room.</li>
+        <li><strong>No recopilamos ni transmitimos tus guiones.</strong> El contenido que escribes o lees es estrictamente confidencial y reside únicamente en tu teléfono.</li>
+    </ul>
+
+    <h3>B. Grabaciones de Video y Fotos</h3>
+    <ul>
+        <li>Los videos grabados a través del teleprompter se codifican en el dispositivo y se guardan directamente en el almacenamiento público del usuario (<span class="tag">Películas / Lumen</span> o almacenamiento multimedia interno).</li>
+        <li>La Aplicación no tiene servidores en la nube para alojar ni transmitir tus videos.</li>
+    </ul>
+
+    <h2>3. Permisos del Dispositivo Solicitados</h2>
+    <p>Para su correcto funcionamiento, la Aplicación puede solicitar los siguientes permisos de Android:</p>
+    <ul>
+        <li><span class="tag">android.permission.CAMERA</span>: Requerido exclusivamente para mostrar la vista previa en vivo detrás del texto y permitirte grabarte mientras lees el guión. La cámara no se activa en segundo plano ni transmite video a terceros.</li>
+        <li><span class="tag">android.permission.RECORD_AUDIO</span>: Necesario para capturar audio sincronizado durante la grabación de video y, de forma opcional, para la función de reconocimiento de voz local para avance automático de texto.</li>
+        <li><span class="tag">android.permission.INTERNET</span> y <span class="tag">android.permission.ACCESS_NETWORK_STATE</span>: Utilizados para cargar anuncios publicitarios mediante la red de Google AdMob.</li>
+        <li><span class="tag">android.permission.WRITE_EXTERNAL_STORAGE</span> (en versiones de Android 9 o anteriores): Utilizado exclusivamente para guardar el archivo de video .mp4 en la galería multimedia de tu teléfono.</li>
+    </ul>
+
+    <h2>4. Publicidad y Terceros (Google AdMob)</h2>
+    <p>
+        La Aplicación muestra anuncios publicitarios proporcionados por <strong>Google AdMob</strong> (Google LLC) para financiar su desarrollo continuo.
+    </p>
+    <p>
+        Google AdMob puede recopilar y procesar identificadores no personales de tu dispositivo (como el ID de publicidad de Google o Advertising ID), dirección IP aproximada, datos de diagnóstico y datos sobre la interacción con los anuncios con el fin de mostrar anuncios personalizados o no personalizados y prevenir el fraude.
+    </p>
+    <p>
+        Para más detalles sobre cómo Google recopila y utiliza los datos, consulta la 
+        <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Política de Privacidad de Google</a> y el documento informativo sobre 
+        <a href="https://support.google.com/admob/answer/6128543" target="_blank" rel="noopener">AdMob y la privacidad</a>.
+    </p>
+
+    <h2>5. Seguridad de los Datos</h2>
+    <p>
+        Dado que los datos de tus guiones y grabaciones no viajan por Internet ni se guardan en servidores externos, el riesgo de filtraciones o accesos no autorizados en la nube es nulo. La seguridad de tus guiones y tomas depende de los mecanismos de bloqueo de pantalla y seguridad física de tu propio dispositivo.
+    </p>
+
+    <h2>6. Eliminación de Datos (Data Deletion)</h2>
+    <p>
+        Tienes el control absoluto sobre tus datos en todo momento:
+    </p>
+    <ul>
+        <li>Puedes eliminar cualquier guión individual dentro de la Aplicación con el botón "Eliminar".</li>
+        <li>Puedes borrar todos los guiones y configuraciones borrando los datos de la aplicación en <em>Ajustes de Android &gt; Aplicaciones &gt; Lumen Teleprompter &gt; Almacenamiento &gt; Borrar datos</em>, o desinstalando la aplicación.</li>
+        <li>Los videos grabados pueden borrarse directamente desde tu aplicación de Galería o Administrador de Archivos en cualquier momento.</li>
+    </ul>
+
+    <h2>7. Menores de Edad (COPPA)</h2>
+    <p>
+        La Aplicación no está dirigida expresamente a menores de 13 años ni recopila deliberadamente datos personales de niños. Cumplimos con los requisitos de la Ley de Protección de la Privacidad Infantil en Línea (COPPA) y las directrices para familias de Google Play.
+    </p>
+
+    <h2>8. Modificaciones a esta Política</h2>
+    <p>
+        Podemos actualizar nuestra Política de Privacidad periódicamente para reflejar mejoras en la Aplicación o cambios normativos. Te notificaremos de cambios significativos actualizando la fecha de "Última actualización" en este documento.
+    </p>
+
+    <h2>9. Contacto</h2>
+    <p>
+        Si tienes preguntas, dudas o comentarios acerca de esta Política de Privacidad o del funcionamiento de la Aplicación, puedes ponerte en contacto con nosotros en:
+    </p>
+    <div class="highlight-box">
+        <strong>Lumen Studio Developer Team</strong><br>
+        Correo electrónico: <a href="mailto:soporte@ebyzom.pe">soporte@ebyzom.pe</a><br>
+        Sitio web: <a href="https://ebyzom.pe" target="_blank" rel="noopener">https://ebyzom.pe</a>
+    </div>
+
+    <footer>
+        &copy; 2026 Lumen Studio. Todos los derechos reservados.<br>
+        Esta política de privacidad cumple con las directrices de Google Play Store y el Reglamento General de Protección de Datos (GDPR).
+    </footer>
+</div>
+
+</body>
+</html>
